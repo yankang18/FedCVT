@@ -1,0 +1,14 @@
+.idea
+.ipynb_checkpoints/
+.DS_Store
+__pycache__/
+*.tar.gz
+*.pyc
+*.json
+*.zip
+data/
+credit_g/
+experimental_results/
+spambase/
+
+
