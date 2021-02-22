@@ -44,7 +44,7 @@ class VerticalFederatedTransferLearning(object):
             Wt = tf.compat.v1.get_variable(name="Wt", initializer=tf.random.normal((in_dim, out_dim), dtype=tf.float64))
         return Wt
 
-    def _build_feature_extraction_with_transfer(self):
+    def _do_build(self):
 
         Ug_all, Ug_non_overlap, Ug_overlap = self.vftl_guest.fetch_feat_reprs()
         Uh_all, Uh_non_overlap, Uh_overlap = self.vftl_host.fetch_feat_reprs()
@@ -81,13 +81,9 @@ class VerticalFederatedTransferLearning(object):
         if is_hetero_repr is True:
             host_comm_dim = Uh_all_comm.shape[1]
             guest_comm_dim = Ug_all_comm.shape[1]
-            # W_hg = self._create_transform_matrix(self.vftl_host.get_comm_feat_repr_dim(),
-            #                                      self.vftl_guest.get_comm_feat_repr_dim())
             W_hg = self._create_transform_matrix(host_comm_dim, guest_comm_dim)
-            print("Using transform matrix:", W_hg)
 
         Y_overlap = self.vftl_guest.get_Y_overlap()
-        # Y_all = self.vftl_guest.get_Y_all()
         Y_guest_non_overlap = self.vftl_guest.get_Y_non_overlap()
 
         self.Y_overlap_for_est = self.vftl_guest.get_Y_overlap_for_est()
@@ -336,7 +332,7 @@ class VerticalFederatedTransferLearning(object):
         self.fed_lr = LogisticRegression(1)
         self.fed_lr.build(input_dim=fed_input_dim, n_class=self.n_class, hidden_dim=fed_hidden_dim)
 
-        train_components, repr_list = self._build_feature_extraction_with_transfer()
+        train_components, repr_list = self._do_build()
         self.fed_reprs, guest_reprs, self.fed_Y, guest_Y, self.assistant_loss_list = train_components
         fed_overlap_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs = repr_list
 
@@ -438,7 +434,6 @@ class VerticalFederatedTransferLearning(object):
         y_hat_1d = self.convert_to_1d_labels(y_prob_two_sides)
         y_test_1d = self.convert_to_1d_labels(y_test)
 
-        debug = True
         if debug:
             print("[DEBUG] y_prob_two_sides shape {0}".format(y_prob_two_sides.shape))
             print("[DEBUG] y_prob_two_sides {0}".format(y_prob_two_sides))
@@ -658,16 +653,16 @@ class VerticalFederatedTransferLearning(object):
             auc_list.append(fl_host_auc)
         return fscore_list, acc_list, auc_list
 
-    def fit(self,
-            sess,
-            overlap_batch_range,
-            guest_non_overlap_batch_range,
-            host_non_overlap_batch_range,
-            guest_block_idx=None,
-            host_block_idx=None,
-            guest_block_indices=None,
-            host_block_indices=None,
-            debug=True):
+    def _train(self,
+               sess,
+               overlap_batch_range,
+               guest_non_overlap_batch_range,
+               host_non_overlap_batch_range,
+               guest_block_idx=None,
+               host_block_idx=None,
+               guest_block_indices=None,
+               host_block_indices=None,
+               debug=True):
 
         train_feed_dict = self.vftl_guest.get_train_feed_dict(overlap_batch_range=overlap_batch_range,
                                                               non_overlap_batch_range=guest_non_overlap_batch_range,
@@ -1160,19 +1155,19 @@ class VerticalFederatedTransferLearning(object):
 
                     print("guest_block_indices: ", guest_block_indices)
 
-                    loss = self.fit(sess=sess,
-                                    overlap_batch_range=(ol_start, ol_end),
-                                    guest_non_overlap_batch_range=(nol_guest_start, nol_guest_end),
-                                    host_non_overlap_batch_range=(nol_host_start, nol_host_end),
-                                    guest_block_idx=ested_guest_block_idx,
-                                    host_block_idx=ested_host_block_idx,
-                                    guest_block_indices=guest_block_indices,
-                                    host_block_indices=host_block_indices,
-                                    debug=debug)
+                    loss = self._train(sess=sess,
+                                       overlap_batch_range=(ol_start, ol_end),
+                                       guest_non_overlap_batch_range=(nol_guest_start, nol_guest_end),
+                                       host_non_overlap_batch_range=(nol_host_start, nol_host_end),
+                                       guest_block_idx=ested_guest_block_idx,
+                                       host_block_idx=ested_host_block_idx,
+                                       guest_block_indices=guest_block_indices,
+                                       host_block_indices=host_block_indices,
+                                       debug=debug)
                     loss_list.append(loss)
                     print("")
                     print("[INFO] ep:{0}, ol_batch_idx:{1}, nol_guest_batch_idx:{2}, nol_host_batch_idx:{3}, loss:{4}"
-                        .format(i, ol_batch_idx, nol_guest_batch_idx, nol_host_batch_idx, loss))
+                          .format(i, ol_batch_idx, nol_guest_batch_idx, nol_host_batch_idx, loss))
                     print("[INFO] ol_block_idx:{0}, nol_guest_block_idx:{1}, nol_host_block_idx:{2}, "
                           "ested_guest_block_idx:{3}, ested_host_block_idx:{4}".format(ol_block_idx,
                                                                                        nol_guest_block_idx,
@@ -1186,7 +1181,7 @@ class VerticalFederatedTransferLearning(object):
                     nol_host_batch_idx = nol_host_batch_idx + 1
 
                     #
-                    # two sides test
+                    # two sides validation
                     #
                     all_acc, all_auc, all_fscore = self.two_side_predict(sess, debug=debug)
                     all_acc_list.append(all_acc)
@@ -1194,7 +1189,7 @@ class VerticalFederatedTransferLearning(object):
                     all_fscore_list.append(all_fscore)
 
                     #
-                    # guest side test
+                    # guest side validation
                     #
                     fed_res, guest_res = self.guest_side_predict(sess,
                                                                  host_all_training_size,
@@ -1218,7 +1213,7 @@ class VerticalFederatedTransferLearning(object):
                         print("%% g_fed_auc_list:", g_fed_auc_list, g_fed_auc_mean)
 
                     #
-                    # host side test
+                    # host side validation
                     #
                     h_fscore_list, h_acc_list, h_auc_list = self.host_side_predict(sess,
                                                                                    guest_all_training_size,

@@ -36,12 +36,7 @@ class ExpandingVFTLGuestConstructor(object):
         self.fed_model_param = fed_model_param
 
     def build(self, X_train, Y_train, X_test, Y_test):
-        print("---> Build Guest")
-
-        # for idx, X_test_i in enumerate(X_test):
-        #     print(idx, np.sum(X_test_i), len(X_test_i))
-        #     if idx > 100:
-        #         break
+        print("[INFO] => Build Guest.")
 
         hidden_dim_list = self.party_param.hidden_dim_list
         learning_rate = self.party_param.nn_learning_rate
@@ -86,12 +81,7 @@ class ExpandingVFTLHostConstructor(object):
         self.fed_model_param = fed_model_param
 
     def build(self, X_train, X_test):
-        print("---> Build Host")
-
-        # for idx, X_test_i in enumerate(X_test):
-        #     print(idx, np.sum(X_test_i), len(X_test_i))
-        #     if idx > 100:
-        #         break
+        print("[INFO] => Build Host.")
 
         hidden_dim_list = self.party_param.hidden_dim_list
         learning_rate = self.party_param.nn_learning_rate
@@ -301,7 +291,7 @@ if __name__ == "__main__":
     # Y_guest_all = np.expand_dims(Y_guest_all, axis=1)
 
     # file_dir = "/datasets/app/fate/yankang/"
-    file_dir = "../../../data/"
+    file_dir = "../../data/"
     # file_dir = "../"
     # target_label_list = ["person", "animal", "sky"]
     target_label_list = ['sky', 'clouds', 'person', 'water', 'animal',
@@ -413,6 +403,15 @@ if __name__ == "__main__":
     with open(file_name, "a", newline='') as logfile:
         logger = csv.DictWriter(logfile, fieldnames=all_field_names)
         logger.writeheader()
+
+    # hyperparam_list = list()
+    # for lr in learning_rate:
+    #     for lbd_dist_shared_reprs in lambda_dis_shared_reprs:
+    #         for lbd_sim_shared_reprs in lambda_sim_shared_reprs_vs_distinct_repr:
+    #             for lbda_3 in lambda_host_dis_ested_lbl_vs_true_lbl:
+    #                 for lbda_4 in lambda_dis_ested_repr_vs_true_repr:
+    #                     for lbda_5 in lambda_host_dis_two_ested_repr:
+    #                         hyperparam_list.append()
 
     # weights for auxiliary losses, which include:
     # (1) loss for minimizing distance between shared representations between host and guest
