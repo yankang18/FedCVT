@@ -12,8 +12,8 @@ class LogisticRegression(object):
         self.hidden_dim = None
         self.n_class = None
         self.sess = None
-        self.loss_factor_list = None
-        self.loss_factor_weight_list = None
+        self.loss_factor_dict = None
+        self.loss_factor_weight_dict = None
         self.y_hat_two_side = None
         self.y_hat_guest_side = None
         self.y_hat_host_side = None
@@ -140,19 +140,24 @@ class LogisticRegression(object):
         self.computed_gradients = optimizer.compute_gradients(self.loss)
         self.e2e_train_op = optimizer.apply_gradients(self.computed_gradients)
 
-    def set_loss_factors(self, loss_factor_list, loss_factor_weight_list):
-        self.loss_factor_list = loss_factor_list
-        self.loss_factor_weight_list = loss_factor_weight_list
+    def set_loss_factors(self, loss_factor_dict, loss_factor_weight_dict):
+        self.loss_factor_dict = loss_factor_dict
+        self.loss_factor_weight_dict = loss_factor_weight_dict
 
     def append_loss_factors(self, loss):
-        if self.loss_factor_list is None or self.loss_factor_weight_list is None:
+        if self.loss_factor_dict is None or self.loss_factor_weight_dict is None:
             return loss
 
-        print("append loss factors:")
-        for loss_fac, loss_fac_weight in zip(self.loss_factor_list, self.loss_factor_weight_list):
-            print("append loss factor:", loss_fac_weight, loss_fac)
+        # print("append loss factors:")
+        # for loss_fac, loss_fac_weight in zip(self.loss_factor_dict, self.loss_factor_weight_dict):
+        #     print("append loss factor:", loss_fac_weight, loss_fac)
+        #     loss = loss + loss_fac_weight * loss_fac
+        #     print("appended loss")
+        print("[DEBUG] append loss factors:")
+        for key, loss_fac in self.loss_factor_dict.items():
+            loss_fac_weight = self.loss_factor_weight_dict[key]
+            print(f"[DEBUG] append loss factor: {key}, [{loss_fac_weight}], {loss_fac}")
             loss = loss + loss_fac_weight * loss_fac
-            print("appended loss")
         return loss
 
     def predict(self, X):

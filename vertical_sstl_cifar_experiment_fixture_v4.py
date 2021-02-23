@@ -147,7 +147,7 @@ if __name__ == "__main__":
                                           learning_rate=0.001,
                                           fed_reg_lambda=0.001,
                                           guest_reg_lambda=0.0,
-                                          loss_weight_list=loss_weight_list,
+                                          loss_weight_dict=loss_weight_list,
                                           # overlap_indices=overlap_indices,
                                           epoch=epoch,
                                           top_k=1,

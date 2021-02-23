@@ -14,7 +14,7 @@ class PartyModelParam(object):
 class FederatedModelParam(object):
     def __init__(self, fed_input_dim, guest_input_dim=None, fed_hidden_dim=None, guest_hidden_dim=None, using_block_idx=True,
                  num_guest_nonoverlap_samples=None, num_host_nonoverlap_samples=None,
-                 learning_rate=0.01, fed_reg_lambda=0.01,  guest_reg_lambda=0.0, loss_weight_list=None, overlap_indices=None,
+                 learning_rate=0.01, fed_reg_lambda=0.01, guest_reg_lambda=0.0, loss_weight_dict=None, overlap_indices=None,
                  non_overlap_indices=None, epoch=50, top_k=3, combine_axis=0, parallel_iterations=10,
                  non_overlap_sample_batch_num=10, overlap_sample_batch_size=None, non_overlap_sample_batch_size=None,
                  overlap_sample_batch_num=10, all_sample_block_size=500,
@@ -28,7 +28,7 @@ class FederatedModelParam(object):
         self.guest_hidden_dim = guest_hidden_dim
         self.fed_reg_lambda = fed_reg_lambda
         self.guest_reg_lamba = guest_reg_lambda
-        self.loss_weight_list = loss_weight_list
+        self.loss_weight_dict = loss_weight_dict
         self.overlap_indices = overlap_indices
         self.non_overlap_indices = non_overlap_indices
         self.epoch = epoch
@@ -50,8 +50,9 @@ class FederatedModelParam(object):
     def get_param_dict(self):
         param_dict = OrderedDict()
         param_dict["reg_lambda"] = self.fed_reg_lambda
-        for idx in range(len(self.loss_weight_list)):
-            param_dict["loss_weight_" + str(idx)] = self.loss_weight_list[idx]
+        # for idx in range(len(self.loss_weight_list)):
+        #     param_dict["loss_weight_" + str(idx)] = self.loss_weight_list[idx]
+        param_dict["loss_weight"] = self.loss_weight_dict
         param_dict["learning_rate"] = self.learning_rate
         param_dict["input_dim"] = self.fed_input_dim
         param_dict["epoch"] = self.epoch

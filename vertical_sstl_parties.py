@@ -421,33 +421,33 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
         else:
             X_all_ref_block, Y_all_ref_block = self.data_loader.retrieve_ested_train_X_y(block_indices)
 
-        print("X_all_ref_block: ")
-        for idx, X_all_ref_block_i in enumerate(X_all_ref_block):
-            if np.isnan(X_all_ref_block_i).any():
-                print("X_all_ref_block_i", idx, X_all_ref_block_i)
-            if np.all(X_all_ref_block_i == 0):
-                print("X_all_ref_block_i", idx, X_all_ref_block_i)
-
-        print("Y_all_ref_block: ")
-        for idx, Y_all_ref_block_i in enumerate(Y_all_ref_block):
-            if np.isnan(Y_all_ref_block_i).any():
-                print("Y_all_ref_block_i", idx, Y_all_ref_block_i)
-            if np.all(Y_all_ref_block_i == 0):
-                print("Y_all_ref_block_i", idx, Y_all_ref_block_i)
-
-        print("X_overlap: ")
-        for idx, X_overlap_i in enumerate(X_overlap):
-            if np.isnan(X_overlap_i).any():
-                print("X_overlap_i", idx, X_overlap_i)
-            if np.all(X_overlap_i == 0):
-                print("X_overlap_i", idx, X_overlap_i)
-
-        print("Y_overlap: ")
-        for idx, Y_overlap_i in enumerate(Y_overlap):
-            if np.isnan(Y_overlap_i).any():
-                print("Y_overlap_i", idx, Y_overlap_i)
-            if np.all(Y_overlap_i == 0):
-                print("Y_overlap_i", idx, Y_overlap_i)
+        # print("X_all_ref_block: ")
+        # for idx, X_all_ref_block_i in enumerate(X_all_ref_block):
+        #     if np.isnan(X_all_ref_block_i).any():
+        #         print("X_all_ref_block_i", idx, X_all_ref_block_i)
+        #     if np.all(X_all_ref_block_i == 0):
+        #         print("X_all_ref_block_i", idx, X_all_ref_block_i)
+        #
+        # print("Y_all_ref_block: ")
+        # for idx, Y_all_ref_block_i in enumerate(Y_all_ref_block):
+        #     if np.isnan(Y_all_ref_block_i).any():
+        #         print("Y_all_ref_block_i", idx, Y_all_ref_block_i)
+        #     if np.all(Y_all_ref_block_i == 0):
+        #         print("Y_all_ref_block_i", idx, Y_all_ref_block_i)
+        #
+        # print("X_overlap: ")
+        # for idx, X_overlap_i in enumerate(X_overlap):
+        #     if np.isnan(X_overlap_i).any():
+        #         print("X_overlap_i", idx, X_overlap_i)
+        #     if np.all(X_overlap_i == 0):
+        #         print("X_overlap_i", idx, X_overlap_i)
+        #
+        # print("Y_overlap: ")
+        # for idx, Y_overlap_i in enumerate(Y_overlap):
+        #     if np.isnan(Y_overlap_i).any():
+        #         print("Y_overlap_i", idx, Y_overlap_i)
+        #     if np.all(Y_overlap_i == 0):
+        #         print("Y_overlap_i", idx, Y_overlap_i)
 
         Y_overlap_for_est = Y_overlap - 0.0
         Y_all_ref_block_for_est = Y_all_ref_block - 0.0

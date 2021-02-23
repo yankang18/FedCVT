@@ -7,7 +7,6 @@ import tensorflow as tf
 from autoencoder import Autoencoder
 from data_util.nus_wide_processed_data_util import TwoPartyNusWideDataLoader
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
-# from vertical_semi_supervised_transfer_learning_v3 import VerticalFederatedTransferLearning
 from vertical_semi_supervised_transfer_learning_v4 import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
@@ -134,24 +133,24 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
 
     print("check data")
     print("X_guest_train: ", X_guest_train.shape)
-    for idx, X_guest_train_i in enumerate(X_guest_train):
-        if np.all(X_guest_train_i == 0):
-            print("X_guest_train_i", idx, X_guest_train_i, np.sum(X_guest_train_i), len(X_guest_train_i))
+    # for idx, X_guest_train_i in enumerate(X_guest_train):
+    #     if np.all(X_guest_train_i == 0):
+    #         print("X_guest_train_i", idx, X_guest_train_i, np.sum(X_guest_train_i), len(X_guest_train_i))
 
     print("X_guest_test: ", X_guest_test.shape)
-    for idx, X_guest_test_i in enumerate(X_guest_test):
-        if np.all(X_guest_test_i == 0):
-            print("X_guest_test_i", idx, X_guest_test_i, np.sum(X_guest_test_i), len(X_guest_test_i))
+    # for idx, X_guest_test_i in enumerate(X_guest_test):
+    #     if np.all(X_guest_test_i == 0):
+    #         print("X_guest_test_i", idx, X_guest_test_i, np.sum(X_guest_test_i), len(X_guest_test_i))
 
     print("X_host_train: ", X_host_train.shape)
-    for idx, X_host_train_i in enumerate(X_host_train):
-        if np.all(X_host_train_i == 0):
-            print("X_host_train_i", idx, X_host_train_i, np.sum(X_host_train_i), len(X_host_train_i))
+    # for idx, X_host_train_i in enumerate(X_host_train):
+    #     if np.all(X_host_train_i == 0):
+    #         print("X_host_train_i", idx, X_host_train_i, np.sum(X_host_train_i), len(X_host_train_i))
 
     print("X_host_test: ", X_host_test.shape)
-    for idx, X_host_test_i in enumerate(X_host_test):
-        if np.all(X_host_test_i == 0):
-            print("X_host_test_i", idx, X_host_test_i, np.sum(X_host_test_i), len(X_host_test_i))
+    # for idx, X_host_test_i in enumerate(X_host_test):
+    #     if np.all(X_host_test_i == 0):
+    #         print("X_host_test_i", idx, X_host_test_i, np.sum(X_host_test_i), len(X_host_test_i))
 
     # configuration
     overlap_indices = [i for i in range(num_overlap)]
@@ -190,38 +189,40 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
 
     parallel_iterations = 100
 
-    learnring_rate = hyperparameter_dict["learning_rate"]
-    lambda_dis_shared_reprs = hyperparameter_dict["lambda_dis_shared_reprs"]
-    lambda_sim_shared_reprs_vs_distinct_repr = hyperparameter_dict["lambda_sim_shared_reprs_vs_distinct_repr"]
-    lambda_host_dis_ested_lbl_vs_true_lbl = hyperparameter_dict["lambda_host_dis_ested_lbl_vs_true_lbl"]
-    lambda_dis_ested_repr_vs_true_repr = hyperparameter_dict["lambda_dis_ested_repr_vs_true_repr"]
-    lambda_host_dis_two_ested_repr = hyperparameter_dict["lambda_host_dis_two_ested_repr"]
+    learning_rate = hyperparameter_dict["learning_rate"]
+    lambda_dist_shared_reprs = hyperparameter_dict["lambda_dist_shared_reprs"]
+    lambda_sim_shared_reprs_vs_unique_repr = hyperparameter_dict["lambda_sim_shared_reprs_vs_unique_repr"]
+    lambda_host_dist_ested_lbl_vs_true_lbl = hyperparameter_dict["lambda_host_dist_ested_lbl_vs_true_lbl"]
+    lambda_dist_ested_repr_vs_true_repr = hyperparameter_dict["lambda_dist_ested_repr_vs_true_repr"]
+    lambda_host_dist_two_ested_lbl = hyperparameter_dict["lambda_host_dist_two_ested_lbl"]
 
     # weights for auxiliary losses, which include:
     # (1) loss for minimizing distance between shared representations between host and guest
-    # (2) (3) loss for minimizing similarity between shared representation and unique representation
-    # for host and guest respectively
-    # (4) loss for minimizing distance between estimated host overlap labels and true overlap labels
-    # (5) loss for minimizing distance between estimated guest overlap representation and true guest representation
-    # (6) loss for minimizing distance between estimated host overlap representation and true host representation
-    # (7) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
-    loss_weight_list = [lambda_dis_shared_reprs,
-                        lambda_sim_shared_reprs_vs_distinct_repr,
-                        lambda_sim_shared_reprs_vs_distinct_repr,
-                        lambda_host_dis_ested_lbl_vs_true_lbl,
-                        lambda_dis_ested_repr_vs_true_repr,
-                        lambda_dis_ested_repr_vs_true_repr,
-                        lambda_host_dis_two_ested_repr]
+    # (2) loss for minimizing similarity between shared representation and unique representation for guest
+    # (3) loss for minimizing similarity between shared representation and unique representation for host
+    # (4) loss for minimizing distance between estimated host unique overlap labels and true overlap labels
+    # (5) loss for minimizing distance between estimated host common overlap labels and true overlap labels
+    # (6) loss for minimizing distance between estimated guest overlap representation and true guest representation
+    # (7) loss for minimizing distance between estimated host overlap representation and true host representation
+    # (8) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
+    loss_weight_dict = {"lambda_dist_shared_reprs": lambda_dist_shared_reprs,
+                        "lambda_guest_sim_shared_reprs_vs_unique_repr": lambda_sim_shared_reprs_vs_unique_repr,
+                        "lambda_host_sim_shared_reprs_vs_unique_repr": lambda_sim_shared_reprs_vs_unique_repr,
+                        "lambda_host_dist_ested_uniq_lbl_vs_true_lbl": lambda_host_dist_ested_lbl_vs_true_lbl,
+                        "lambda_host_dist_ested_comm_lbl_vs_true_lbl": lambda_host_dist_ested_lbl_vs_true_lbl,
+                        "lambda_guest_dist_ested_repr_vs_true_repr": lambda_dist_ested_repr_vs_true_repr,
+                        "lambda_host_dist_ested_repr_vs_true_repr": lambda_dist_ested_repr_vs_true_repr,
+                        "lambda_host_dist_two_ested_lbl": lambda_host_dist_two_ested_lbl}
 
-    print("* hyperparameter_dict :{0}".format(hyperparameter_dict))
-    print("* loss_weight_list: {0}".format(loss_weight_list))
+    print("* hyper-parameter_dict :{0}".format(hyperparameter_dict))
+    print("* loss_weight_dict: {0}".format(loss_weight_dict))
     fed_model_param = FederatedModelParam(fed_input_dim=input_dim,
                                           guest_input_dim=int(input_dim / 2),
                                           using_block_idx=False,
-                                          learning_rate=learnring_rate,
+                                          learning_rate=learning_rate,
                                           fed_reg_lambda=0.001,
                                           guest_reg_lambda=0.0,
-                                          loss_weight_list=loss_weight_list,
+                                          loss_weight_dict=loss_weight_dict,
                                           overlap_indices=overlap_indices,
                                           non_overlap_indices=non_overlap_indices,
                                           epoch=epoch,
@@ -376,9 +377,10 @@ if __name__ == "__main__":
     # learning_rate = [0.01, 0.05, 0.1]
 
     lambda_dis_shared_reprs = [1.0]
-    lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
+    # lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
     # lambda_host_dis_ested_lbl_vs_true_lbl = [1]
     # lambda_dis_ested_repr_vs_true_repr = [0.1]
+    lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
     lambda_host_dis_ested_lbl_vs_true_lbl = [100]
     lambda_dis_ested_repr_vs_true_repr = [100]
     lambda_host_dis_two_ested_repr = [0.1]
@@ -432,11 +434,11 @@ if __name__ == "__main__":
                     for lbda_4 in lambda_dis_ested_repr_vs_true_repr:
                         for lbda_5 in lambda_host_dis_two_ested_repr:
                             hyperparameter_dict["learning_rate"] = lbda_7
-                            hyperparameter_dict["lambda_dis_shared_reprs"] = lbda_1
-                            hyperparameter_dict["lambda_sim_shared_reprs_vs_distinct_repr"] = lbda_2
-                            hyperparameter_dict["lambda_host_dis_ested_lbl_vs_true_lbl"] = lbda_3
-                            hyperparameter_dict["lambda_dis_ested_repr_vs_true_repr"] = lbda_4
-                            hyperparameter_dict["lambda_host_dis_two_ested_repr"] = lbda_5
+                            hyperparameter_dict["lambda_dist_shared_reprs"] = lbda_1
+                            hyperparameter_dict["lambda_sim_shared_reprs_vs_unique_repr"] = lbda_2
+                            hyperparameter_dict["lambda_host_dist_ested_lbl_vs_true_lbl"] = lbda_3
+                            hyperparameter_dict["lambda_dist_ested_repr_vs_true_repr"] = lbda_4
+                            hyperparameter_dict["lambda_host_dist_two_ested_lbl"] = lbda_5
                             run_experiment(X_guest_all=X_guest_all, X_host_all=X_host_all, Y_guest_all=Y_guest_all,
                                            num_overlap=num_overlap, hyperparameter_dict=hyperparameter_dict,
                                            num_train=num_train, test_start_index=test_start_index,
