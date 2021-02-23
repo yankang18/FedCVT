@@ -114,8 +114,7 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                    overlap_sample_batch_size,
                    non_overlap_sample_batch_size,
                    estimation_block_size,
-                   training_info_file_name,
-                   training_info_field_names):
+                   training_info_file_name):
     X_guest_train, y_train = X_guest_all[:num_train], Y_guest_all[:num_train]
     X_guest_test, y_test = X_guest_all[test_start_index:], Y_guest_all[test_start_index:]
 
@@ -163,10 +162,10 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
     # guest_hidden_dim = 8
     # host_second_to_last_dim = 10
     # host_hidden_dim = 8
-
     # guest_second_to_last_dim = 200
-    guest_hidden_dim = 32
     # host_second_to_last_dim = 200
+
+    guest_hidden_dim = 32
     host_hidden_dim = 32
 
     num_class = len(target_label_list)
@@ -178,8 +177,6 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                                        apply_dropout=False,
                                        hidden_dim_list=[host_hidden_dim],
                                        n_class=num_class)
-    # guest_model_param = PartyModelParam(hidden_dim_list=[guest_second_to_last_dim, guest_hidden_dim])
-    # host_model_param = PartyModelParam(hidden_dim_list=[host_second_to_last_dim, host_hidden_dim])
 
     print("combine_axis:", combine_axis)
     if combine_axis == 0:
@@ -238,7 +235,8 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                                           all_sample_block_size=estimation_block_size,
                                           sharpen_temperature=0.1,
                                           fed_label_prob_threshold=0.6,
-                                          host_label_prob_threshold=0.6)
+                                          host_label_prob_threshold=0.6,
+                                          training_info_file_name=training_info_file_name)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param,
@@ -261,18 +259,7 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                                              model_param=fed_model_param)
     VFTL.set_representation_estimator(AttentionBasedRepresentationEstimator())
     VFTL.build()
-
-    training_result_log_dict, loss_list = VFTL.train(debug=False)
-    record_dict = dict()
-    record_dict.update(hyperparameter_dict)
-    record_dict.update(training_result_log_dict)
-
-    print("record_dict", record_dict)
-    print("training_info_field_names", training_info_field_names)
-    print("diff:", record_dict.keys() - training_info_field_names)
-    with open(training_info_file_name, "a") as logfile:
-        logger = csv.DictWriter(logfile, fieldnames=training_info_field_names)
-        logger.writerow(record_dict)
+    VFTL.train(debug=False)
 
 
 if __name__ == "__main__":
@@ -381,31 +368,13 @@ if __name__ == "__main__":
     # lambda_dis_ested_repr_vs_true_repr = [0.1]
     lambda_sim_shared_reprs_vs_distinct_repr = [0.1]
     lambda_host_dis_ested_lbl_vs_true_lbl = [100]
-    lambda_dis_ested_repr_vs_true_repr = [10]
+    lambda_dis_ested_repr_vs_true_repr = [100]
     lambda_host_dis_two_ested_repr = [0.1]
-    learning_rate = [0.01, 0.003]
+    learning_rate = [0.01, 0.005]
 
-    log_field_names = ["fscore",
-                       "all_fscore", "g_fscore", "h_fscore",
-                       "all_acc", "g_acc", "h_acc",
-                       "all_auc", "g_auc", "h_auc",
-                       "epoch", "batch"]
-
-    hyperparam_field_names = ["lambda_dis_shared_reprs",
-                              "lambda_sim_shared_reprs_vs_distinct_repr",
-                              "lambda_host_dis_ested_lbl_vs_true_lbl",
-                              "lambda_dis_ested_repr_vs_true_repr",
-                              "lambda_host_dis_two_ested_repr",
-                              "learning_rate"]
-
-    all_field_names = hyperparam_field_names + log_field_names
-    print("all fields of log: {0}".format(all_field_names))
     file_folder = "training_log_info/"
     timestamp = get_timestamp()
     file_name = file_folder + "test_csv_read_" + timestamp + ".csv"
-    with open(file_name, "a", newline='') as logfile:
-        logger = csv.DictWriter(logfile, fieldnames=all_field_names)
-        logger.writeheader()
 
     # hyperparam_list = list()
     # for lr in learning_rate:
@@ -445,4 +414,4 @@ if __name__ == "__main__":
                                            overlap_sample_batch_size=overlap_sample_batch_size,
                                            non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                            estimation_block_size=estimation_block_size,
-                                           training_info_file_name=file_name, training_info_field_names=all_field_names)
+                                           training_info_file_name=file_name)

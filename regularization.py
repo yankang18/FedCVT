@@ -23,7 +23,7 @@ class EarlyStoppingCheckPoint(object):
         self.stopped_epoch = 0
         self.stopped_batch = 0
         self.best = -np.Inf
-        self.best_log = None
+        self.best_log = dict()
         self.best_list = []
 
     def set_model(self, model):
@@ -51,8 +51,9 @@ class EarlyStoppingCheckPoint(object):
             self.best_log["batch"] = batch
             print("[INFO] find best {0}: {1} at epoch {2}, batch {3}".format(self.monitor, self.best, epoch, batch))
             if self.file_path is not None:
-                print("save model to {0}".format(self.file_path))
+                print("[INFO] save model to {0}".format(self.file_path))
                 self.model.save_model(self.file_path)
+                self.model.save_info(self.file_path, self.get_log_info())
             self.wait_iter = 0
             self.best_epoch = epoch
         else:

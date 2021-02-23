@@ -36,7 +36,7 @@ class VerticalFederatedTransferLearning(object):
         print("overlap_indices size:", len(overlap_indices))
         return overlap_indices
 
-    def save_model(self):
+    def save_model(self, ):
         print("TODO: save model")
 
     @staticmethod

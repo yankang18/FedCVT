@@ -19,7 +19,8 @@ class FederatedModelParam(object):
                  non_overlap_sample_batch_num=10, overlap_sample_batch_size=None, non_overlap_sample_batch_size=None,
                  overlap_sample_batch_num=10, all_sample_block_size=500,
                  is_hetero_repr=False, sharpen_temperature=0.1, fed_label_prob_threshold=0.7,
-                 host_label_prob_threshold=0.6):
+                 host_label_prob_threshold=0.6,
+                 training_info_file_name=None):
         self.learning_rate = learning_rate
         self.using_block_idx = using_block_idx
         self.fed_input_dim = fed_input_dim
@@ -46,13 +47,14 @@ class FederatedModelParam(object):
         self.sharpen_temperature = sharpen_temperature
         self.host_label_prob_threshold = host_label_prob_threshold
         self.fed_label_prob_threshold = fed_label_prob_threshold
+        self.training_info_file_name = training_info_file_name
 
-    def get_param_dict(self):
+    def get_parameters(self):
         param_dict = OrderedDict()
         param_dict["reg_lambda"] = self.fed_reg_lambda
         # for idx in range(len(self.loss_weight_list)):
         #     param_dict["loss_weight_" + str(idx)] = self.loss_weight_list[idx]
-        param_dict["loss_weight"] = self.loss_weight_dict
+        param_dict["loss_lambda"] = self.loss_weight_dict
         param_dict["learning_rate"] = self.learning_rate
         param_dict["input_dim"] = self.fed_input_dim
         param_dict["epoch"] = self.epoch

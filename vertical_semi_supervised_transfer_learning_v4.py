@@ -1,3 +1,4 @@
+import csv
 import os
 import time
 
@@ -35,8 +36,17 @@ class VerticalFederatedTransferLearning(object):
         print("overlap_indices size:", len(overlap_indices))
         return overlap_indices
 
-    def save_model(self):
-        print("TODO: save model")
+    def get_hyperparameters(self):
+        return self.model_param.get_parameters()
+
+    def save_model(self, file_path):
+        print("[INFO] TODO: save model")
+
+    def save_info(self, file_path, log_info):
+        field_names = list(log_info.keys())
+        with open(file_path, "a") as logfile:
+            logger = csv.DictWriter(logfile, fieldnames=field_names)
+            logger.writerow(log_info)
 
     @staticmethod
     def _create_transform_matrix(in_dim, out_dim):
@@ -955,6 +965,7 @@ class VerticalFederatedTransferLearning(object):
         using_block_idx = self.model_param.using_block_idx
         nol_batch_size = self.model_param.non_overlap_sample_batch_size
         ol_batch_size = self.model_param.overlap_sample_batch_size
+        training_info_file_name = self.model_param.training_info_file_name
 
         nol_guest_batch_size = nol_batch_size
         nol_host_batch_size = nol_batch_size
@@ -984,9 +995,13 @@ class VerticalFederatedTransferLearning(object):
         host_block_indices = None
         estimation_block_size = None
 
-        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", patience=200)
+        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", patience=200, file_path=training_info_file_name)
         early_stopping.set_model(self)
         early_stopping.on_train_begin()
+
+        with open(training_info_file_name, "a", newline='') as logfile:
+            logger = csv.DictWriter(logfile, fieldnames=list(early_stopping.get_log_info().keys()))
+            logger.writeheader()
 
         # load validation data
         guest_val_block_size = self.vftl_guest.load_val_block(0)
