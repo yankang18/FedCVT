@@ -236,7 +236,6 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                                           non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                           overlap_sample_batch_num=num_overlap,
                                           all_sample_block_size=estimation_block_size,
-                                          is_hetero_repr=False,
                                           sharpen_temperature=0.1,
                                           fed_label_prob_threshold=0.6,
                                           host_label_prob_threshold=0.6)
@@ -361,7 +360,7 @@ if __name__ == "__main__":
     epoch = 25
     estimation_block_size = 5000
     non_overlap_sample_batch_num = 40
-    overlap_sample_batch_size = 128
+    overlap_sample_batch_size = 256
     non_overlap_sample_batch_size = 256
     num_overlap = 500
     num_train = 40000
@@ -380,11 +379,11 @@ if __name__ == "__main__":
     # lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
     # lambda_host_dis_ested_lbl_vs_true_lbl = [1]
     # lambda_dis_ested_repr_vs_true_repr = [0.1]
-    lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
+    lambda_sim_shared_reprs_vs_distinct_repr = [0.1]
     lambda_host_dis_ested_lbl_vs_true_lbl = [100]
-    lambda_dis_ested_repr_vs_true_repr = [100]
+    lambda_dis_ested_repr_vs_true_repr = [10]
     lambda_host_dis_two_ested_repr = [0.1]
-    learning_rate = [0.01]
+    learning_rate = [0.01, 0.003]
 
     log_field_names = ["fscore",
                        "all_fscore", "g_fscore", "h_fscore",

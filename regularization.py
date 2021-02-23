@@ -49,7 +49,7 @@ class EarlyStoppingCheckPoint(object):
             self.best_log = log
             self.best_log["epoch"] = epoch
             self.best_log["batch"] = batch
-            print("find best {0}: {1} at epoch {2}, batch {3}".format(self.monitor, self.best, epoch, batch))
+            print("[INFO] find best {0}: {1} at epoch {2}, batch {3}".format(self.monitor, self.best, epoch, batch))
             if self.file_path is not None:
                 print("save model to {0}".format(self.file_path))
                 self.model.save_model(self.file_path)
@@ -69,10 +69,10 @@ class EarlyStoppingCheckPoint(object):
                 self.stopped_batch = batch
                 self.model.stop_training = True
 
-            print("{0} is not the best {1}, which is {2}".format(current, self.monitor, self.best))
-            print("current best info:", self.best_log)
-            print("current wait iteration count is {0}".format(self.wait_iter))
-            print("current wait epoch count is {0}".format(wait_epoch))
+            print("[INFO] {0} is not the best {1}, which is ***{2}".format(current, self.monitor, self.best))
+            print("[INFO] current best info:", self.best_log)
+            print("[INFO] current wait iteration count is {0}".format(self.wait_iter))
+            print("[INFO] current wait epoch count is {0}".format(wait_epoch))
 
     def print_log_of_best_result(self):
         pp = pprint.PrettyPrinter(indent=4)

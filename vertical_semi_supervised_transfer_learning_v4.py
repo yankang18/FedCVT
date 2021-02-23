@@ -73,16 +73,10 @@ class VerticalFederatedTransferLearning(object):
         self.Uh_overlap_comm_temp = Uh_overlap_comm
 
         sharpen_temp = self.model_param.sharpen_temperature
-        is_hetero_repr = self.model_param.is_hetero_repr
         fed_label_prob_threshold = self.model_param.fed_label_prob_threshold
         host_label_prob_threhold = self.model_param.host_label_prob_threshold
 
         W_hg = None
-        # if is_hetero_repr is True:
-        #     host_comm_dim = Uh_all_comm.shape[1]
-        #     guest_comm_dim = Ug_all_comm.shape[1]
-        #     W_hg = self._create_transform_matrix(host_comm_dim, guest_comm_dim)
-
         Y_overlap = self.vftl_guest.get_Y_overlap()
         Y_guest_non_overlap = self.vftl_guest.get_Y_non_overlap()
 
@@ -113,6 +107,104 @@ class VerticalFederatedTransferLearning(object):
             sharpen_tempature=sharpen_temp,
             W_hg=W_hg)
 
+        print("[DEBUG] Ug_non_overlap_ested_reprs_w_lbls shape", self.Ug_non_overlap_ested_reprs_w_lbls.shape)
+        Ug_non_overlap_ested_reprs = self.Ug_non_overlap_ested_reprs_w_lbls[:, :-self.n_class]
+        self.nl_ested_lbls_for_att_ested_guest_reprs = self.Ug_non_overlap_ested_reprs_w_lbls[:, -self.n_class:]
+
+        # representations for overlapping samples
+        fed_ol_reprs = tf.concat([Ug_overlap_uniq, Ug_overlap_comm, Uh_overlap_uniq, Uh_overlap_comm], axis=1)
+
+        # representations for non-overlapping samples of guest with host's representations estimated.
+        fed_nl_w_host_ested_reprs = tf.concat([Ug_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_ested_reprs],
+                                              axis=1)
+
+        # representations for non-overlapping samples of host with guest's representations estimated.
+        fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_uniq, Uh_non_overlap_comm],
+                                               axis=1)
+
+        # estimate labels for federated feature representations with guest's representations estimated.
+        self.nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
+
+        # estimate labels for estimated feature representations of missing samples of guest
+        self.nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
+
+        print("fed_nl_w_guest_ested_reprs:", fed_nl_w_guest_ested_reprs)
+        print("nl_ested_lbls_for_att_ested_guest_reprs:", self.nl_ested_lbls_for_att_ested_guest_reprs)
+        print("nl_ested_lbls_for_fed_ested_guest_reprs:", self.nl_ested_lbls_for_fed_ested_guest_reprs)
+        print("nl_ested_lbls_for_lr_ested_guest_reprs:", self.nl_ested_lbls_for_lr_ested_guest_reprs)
+
+        ##########
+        # aggregate host non-overlap feature representations and candidate labels
+        # we will select host non-overlap feature representations with corresponding labels for training based on
+        # estimated candidate labels.
+        ##########
+
+        # fed_nl_w_ested_guest_reprs_n_candidate_labels is the federated feature representations in which the guest's
+        # representations are estimated and two estimated candidate labels.
+        self.fed_nl_w_ested_guest_reprs_n_candidate_labels = tf.concat(
+            [fed_nl_w_guest_ested_reprs,
+             self.nl_ested_lbls_for_lr_ested_guest_reprs,
+             self.nl_ested_lbls_for_fed_ested_guest_reprs],
+            axis=1)
+
+        print("[DEBUG] fed_nl_w_ested_guest_reprs_n_candidate_labels shape {0}".format(
+            self.fed_nl_w_ested_guest_reprs_n_candidate_labels.shape))
+
+        # select representations from fed_nl_w_ested_guest_reprs_n_candidate_labels based on the two estimated labels.
+        selected_reprs_w_lbls = self.repr_estimator.select_reprs_for_multiclass(
+            reprs_w_candidate_labels=self.fed_nl_w_ested_guest_reprs_n_candidate_labels,
+            n_class=self.n_class,
+            fed_label_upper_bound=fed_label_prob_threshold,
+            host_label_upper_bound=host_label_prob_threhold)
+
+        self.num_selected_samples = selected_reprs_w_lbls.size()
+        has_selected_samples = selected_reprs_w_lbls.size() > 0
+
+        def f1():
+            # if have selected representations
+            reprs_w_labels = selected_reprs_w_lbls.concat()
+            reprs = reprs_w_labels[:, :-self.n_class]
+            labels = reprs_w_labels[:, -self.n_class:]
+
+            fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs, reprs], axis=0)
+            fed_Y = tf.concat([Y_overlap, Y_guest_non_overlap, labels], axis=0)
+            return fed_reprs, fed_Y
+
+        def f2():
+            # if have no selected representations
+            fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs], axis=0)
+            fed_Y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
+            return fed_reprs, fed_Y
+
+        train_fed_reprs, train_fed_Y = tf.cond(pred=has_selected_samples, true_fn=f1, false_fn=f2)
+        self.training_fed_reprs_shape = tf.shape(input=train_fed_reprs)
+
+        train_guest_ol_reprs = tf.concat(Ug_overlap, axis=1)
+        train_guest_ul_reprs = tf.concat(Ug_non_overlap, axis=1)
+        train_guest_reprs = tf.concat((train_guest_ol_reprs, train_guest_ul_reprs), axis=0)
+        train_guest_Y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
+
+        print("train_guest_ol_reprs:", train_guest_ol_reprs)
+        print("train_guest_ul_reprs:", train_guest_ul_reprs)
+        print("train_guest_reprs:", train_guest_reprs)
+        print("train_guest_Y:", train_guest_Y)
+
+        self.training_guest_reprs_shape = tf.shape(input=train_guest_reprs)
+
+        guest_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+        repr_list = [fed_ol_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs]
+
+        print("train_fed_reprs shape", train_fed_reprs.shape)
+        print("training_guest_reprs_shape shape", self.training_guest_reprs_shape.shape)
+        print("Y_overlap shape", Y_overlap, Y_overlap.shape)
+        print("Y_guest_non_overlap shape", Y_guest_non_overlap, Y_guest_non_overlap.shape)
+        # print("Y_host_non_overlap shape", Y_host_non_overlap, Y_host_non_overlap.shape)
+        # print("Y_host_non_overlap shape", selected_host_lbls, selected_host_lbls.shape)
+
+        ##########
+        # compute losses
+        ##########
+
         # estimate labels for unique representations and shared representation of host, respectively.
         self.uniq_lbls, self.comm_lbls = self.repr_estimator.estimate_unique_comm_labels_for_host_party(
             Uh_comm=Uh_all_comm,
@@ -123,17 +215,6 @@ class VerticalFederatedTransferLearning(object):
             Yg_all=Y_all_for_est,
             sharpen_tempature=sharpen_temp,
             W_hg=W_hg)
-
-        print("[DEBUG] Ug_non_overlap_ested_reprs_w_lbls shape", self.Ug_non_overlap_ested_reprs_w_lbls.shape)
-        Ug_non_overlap_ested_reprs = self.Ug_non_overlap_ested_reprs_w_lbls[:, :-self.n_class]
-        self.nl_ested_lbls_for_att_ested_guest_reprs = self.Ug_non_overlap_ested_reprs_w_lbls[:, -self.n_class:]
-
-        # aggregate all guest and host feature representations for minimizing main objective loss
-        fed_ol_reprs = tf.concat([Ug_overlap_uniq, Ug_overlap_comm, Uh_overlap_uniq, Uh_overlap_comm], axis=1)
-        fed_nl_w_host_ested_reprs = tf.concat([Ug_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_ested_reprs],
-                                              axis=1)
-        fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_uniq, Uh_non_overlap_comm],
-                                               axis=1)
 
         # estimate overlap feature representations on host side for guest party for minimizing alignment loss
         Uh_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
@@ -169,79 +250,6 @@ class VerticalFederatedTransferLearning(object):
                                                                                             W_hg=W_hg)
         _, self.Uh_non_overlap_ested_soft_lbls, _, _ = result_non_overlap
 
-        # predict labels for estimated host non-overlap feature representations on guest side
-        self.nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
-        self.nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
-
-        print("fed_nl_w_guest_ested_reprs:", fed_nl_w_guest_ested_reprs)
-        print("Ug_non_overlap_ested_lbls:", self.nl_ested_lbls_for_att_ested_guest_reprs)
-        print("nl_ested_lbls_for_fed_ested_guest_reprs:", self.nl_ested_lbls_for_fed_ested_guest_reprs)
-        print("non_overlap_ested_lbls_for_ested_guest_reprs:", self.nl_ested_lbls_for_lr_ested_guest_reprs)
-
-        # aggregate host non overlap feature representations and candidate labels
-        # we will select host non overlap feature representations with corresponding labels for training based on
-        # candidate labels.
-
-        self.host_non_overlap_reprs_w_condidate_labels = tf.concat(
-            [fed_nl_w_guest_ested_reprs,
-             self.nl_ested_lbls_for_lr_ested_guest_reprs,
-             self.nl_ested_lbls_for_fed_ested_guest_reprs],
-            axis=1)
-
-        print("host_non_overlap_reprs_w_condidate_labels shape {0}".format(
-            self.host_non_overlap_reprs_w_condidate_labels.shape))
-
-        # select host non overlap feature representations with corresponding labels for training
-        dynamic_array = self.repr_estimator.select_reprs_for_multiclass(
-            reprs_w_condidate_labels=self.host_non_overlap_reprs_w_condidate_labels,
-            n_class=self.n_class,
-            fed_label_upper_bound=fed_label_prob_threshold,
-            host_label_upper_bound=host_label_prob_threhold)
-
-        self.num_selected_samples = dynamic_array.size()
-        has_selected_samples = dynamic_array.size() > 0
-
-        def f1():
-            reprs_w_labels = dynamic_array.concat()
-            reprs = reprs_w_labels[:, :-self.n_class]
-            labels = reprs_w_labels[:, -self.n_class:]
-
-            fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs, reprs], axis=0)
-            fed_Y = tf.concat([Y_overlap, Y_guest_non_overlap, labels], axis=0)
-            return fed_reprs, fed_Y
-
-        def f2():
-            fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs], axis=0)
-            fed_Y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
-            return fed_reprs, fed_Y
-
-        train_fed_reprs, train_fed_Y = tf.cond(pred=has_selected_samples, true_fn=f1, false_fn=f2)
-        self.training_fed_reprs_shape = tf.shape(input=train_fed_reprs)
-
-        train_guest_ol_reprs = tf.concat(Ug_overlap, axis=1)
-        train_guest_ul_reprs = tf.concat(Ug_non_overlap, axis=1)
-        train_guest_reprs = tf.concat((train_guest_ol_reprs, train_guest_ul_reprs), axis=0)
-        train_guest_Y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
-
-        print("train_guest_ol_reprs:", train_guest_ol_reprs)
-        print("train_guest_ul_reprs:", train_guest_ul_reprs)
-        print("train_guest_reprs:", train_guest_reprs)
-        print("train_guest_Y:", train_guest_Y)
-
-        self.training_guest_reprs_shape = tf.shape(input=train_guest_reprs)
-
-        guest_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
-        repr_list = [fed_ol_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs]
-
-        print("train_fed_reprs shape", train_fed_reprs.shape)
-        print("training_guest_reprs_shape shape", self.training_guest_reprs_shape.shape)
-
-        print("Y_overlap shape", Y_overlap, Y_overlap.shape)
-        print("Y_guest_non_overlap shape", Y_guest_non_overlap, Y_guest_non_overlap.shape)
-        # print("Y_host_non_overlap shape", Y_host_non_overlap, Y_host_non_overlap.shape)
-        # print("Y_host_non_overlap shape", selected_host_lbls, selected_host_lbls.shape)
-
-        # compute losses
         # loss_weight_dict = {"lambda_dist_shared_reprs": lambda_dist_shared_reprs,
         #                     "lambda_guest_sim_shared_reprs_vs_unique_repr": lambda_sim_shared_reprs_vs_unique_repr,
         #                     "lambda_host_sim_shared_reprs_vs_unique_repr": lambda_sim_shared_reprs_vs_unique_repr,
@@ -351,24 +359,6 @@ class VerticalFederatedTransferLearning(object):
     @staticmethod
     def get_orth_reprs_loss(Ug_uniq, Ug_comm, Uh_uniq, Uh_comm):
         num_samples = tf.cast(tf.shape(input=Ug_uniq)[0], tf.float32)
-
-        # approach 1
-        # guest_uniq_reprs_loss = - tf.nn.l2_loss(Ug_uniq - Ug_comm) / num_samples
-        # host_uniq_reprs_loss = - tf.nn.l2_loss(Uh_uniq - Uh_comm) / num_samples
-
-        # approach 2
-        # epsilon = 0.000001
-        # guest_uniq_reprs_loss = 1 / (tf.nn.l2_loss(Ug_uniq - Ug_comm) / num_samples + epsilon)
-        # host_uniq_reprs_loss = 1 / (tf.nn.l2_loss(Uh_uniq - Uh_comm) / num_samples + epsilon)
-
-        # approach 3
-        # epsilon = 0.000001
-        # guest_uniq_reprs_loss = 1 / (tf.reduce_sum(tf.matmul(Ug_uniq, tf.transpose(Ug_comm))) / num_samples + epsilon)
-        # host_uniq_reprs_loss = 1 / (tf.reduce_sum(tf.matmul(Uh_uniq, tf.transpose(Uh_comm))) / num_samples + epsilon)
-
-        # approach 4
-        # guest_uniq_reprs_loss = tf.reduce_sum(tf.matmul(Ug_uniq, tf.transpose(Ug_comm))) / num_samples
-        # host_uniq_reprs_loss = tf.reduce_sum(tf.matmul(Uh_uniq, tf.transpose(Uh_comm))) / num_samples
         guest_uniq_reprs_loss = tf.nn.l2_loss(tf.matmul(Ug_uniq, tf.transpose(a=Ug_comm))) / num_samples
         host_uniq_reprs_loss = tf.nn.l2_loss(tf.matmul(Uh_uniq, tf.transpose(a=Uh_comm))) / num_samples
         return guest_uniq_reprs_loss, host_uniq_reprs_loss
@@ -752,7 +742,7 @@ class VerticalFederatedTransferLearning(object):
                 self.fed_lr.computed_gradients,
                 self.num_selected_samples,
                 self.training_fed_reprs_shape,
-                self.host_non_overlap_reprs_w_condidate_labels,
+                self.fed_nl_w_ested_guest_reprs_n_candidate_labels,
                 self.uniq_lbls,
                 self.comm_lbls,
                 self.Ug_non_overlap_ested_reprs_w_lbls,

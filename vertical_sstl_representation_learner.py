@@ -246,7 +246,7 @@ class AttentionBasedRepresentationEstimator(object):
         return reprs, tf.expand_dims(hard_labels, axis=1)
 
     def select_reprs_for_multiclass(self,
-                                    reprs_w_condidate_labels,
+                                    reprs_w_candidate_labels,
                                     n_class,
                                     fed_label_upper_bound=0.5,
                                     host_label_upper_bound=0.5):
@@ -257,16 +257,16 @@ class AttentionBasedRepresentationEstimator(object):
             clear_after_read=False)
 
         def cond(i, j, row):
-            return j < tf.shape(input=reprs_w_condidate_labels)[0]
+            return j < tf.shape(input=reprs_w_candidate_labels)[0]
 
         def body(i, j, row):
             print("-------> iter {0}".format(j))
-            reprs = reprs_w_condidate_labels[j, :-2 * n_class:]
+            reprs = reprs_w_candidate_labels[j, :-2 * n_class:]
 
             # fetch fed labels
-            condidate_lbl_1 = reprs_w_condidate_labels[j, -n_class:]
+            condidate_lbl_1 = reprs_w_candidate_labels[j, -n_class:]
             # fetch guest_lr labels
-            condidate_lbl_2 = reprs_w_condidate_labels[j, -2 * n_class:-n_class]
+            condidate_lbl_2 = reprs_w_candidate_labels[j, -2 * n_class:-n_class]
 
             print("reprs", reprs)
             print("condidate_lbl_1", condidate_lbl_1)
@@ -297,7 +297,7 @@ class AttentionBasedRepresentationEstimator(object):
 
                 a_reprs = tf.expand_dims(reprs, axis=0)
                 print("a_reprs:", a_reprs)
-                fed_condidate_lbl = reprs_w_condidate_labels[j, -n_class:]
+                fed_condidate_lbl = reprs_w_candidate_labels[j, -n_class:]
                 a_condidate_lbl_1 = tf.expand_dims(fed_condidate_lbl, axis=0)
                 s_condidate_lbl_1 = sharpen(a_condidate_lbl_1, temperature=0.1)
                 print("s_condidate_lbl_1:", s_condidate_lbl_1)

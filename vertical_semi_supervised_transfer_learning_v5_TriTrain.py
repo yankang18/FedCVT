@@ -212,7 +212,7 @@ class VerticalFederatedTransferLearning(object):
         # selected_fed_host_non_overlap_reprs, selected_host_lbls = self.repr_estimator.select_reprs_for_multiclass(
         #     reprs_w_condidate_labels=host_non_overlap_reprs_w_condidate_labels, n_class=self.n_class, upper_bound=0.3)
         dynamic_array = self.repr_estimator.select_reprs_for_multiclass(
-            reprs_w_condidate_labels=self.host_non_overlap_reprs_w_condidate_labels,
+            reprs_w_candidate_labels=self.host_non_overlap_reprs_w_condidate_labels,
             n_class=self.n_class,
             fed_label_upper_bound=fed_label_prob_threshold,
             host_label_upper_bound=host_label_prob_threhold)
