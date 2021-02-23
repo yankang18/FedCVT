@@ -80,7 +80,6 @@ def get_all_guest():
 
 def get_fed_image_as_guest_result_v2():
 
-
     # Num_overlap = 250
 
     all_acc_250_1 = 0.6388270006623713
@@ -888,14 +887,15 @@ if __name__ == "__main__":
     benchmark_result = get_benchmark_result()
     guest = get_all_guest()
 
-    # fed_mvt = get_fed_image_as_guest_result_v2()
-    # guest_acc = "g_image_acc"
-    # guest_data_type = "image"
-    # scenario = "Scenario-1:"
-    fed_mvt = get_fed_text_as_guest_result()
-    guest_acc = "g_txt_acc"
-    guest_data_type = "text"
-    scenario = "Scenario-2:"
+    fed_mvt = get_fed_image_as_guest_result_v2()
+    guest_acc = "g_image_acc"
+    guest_data_type = "image"
+    scenario = "Scenario-1:"
+
+    # fed_mvt = get_fed_text_as_guest_result()
+    # guest_acc = "g_txt_acc"
+    # guest_data_type = "text"
+    # scenario = "Scenario-2:"
 
     fedmvt_all = []
     fedmvt_guest = []

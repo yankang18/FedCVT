@@ -190,14 +190,6 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
 
     parallel_iterations = 100
 
-    # weights for auxiliary losses, which include:
-    # (1) loss for minimizing distance between shared representations between host and guest
-    # (2) (3) loss for minimizing similarity between shared representation and distinct representation
-    # for host and guest respectively
-    # (4) loss for minimizing distance between estimated host overlap labels and true overlap labels
-    # (5) loss for minimizing distance between estimated guest overlap representation and true guest representation
-    # (6) loss for minimizing distance between estimated host overlap representation and true host representation
-    # (7) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
     learnring_rate = hyperparameter_dict["learning_rate"]
     lambda_dis_shared_reprs = hyperparameter_dict["lambda_dis_shared_reprs"]
     lambda_sim_shared_reprs_vs_distinct_repr = hyperparameter_dict["lambda_sim_shared_reprs_vs_distinct_repr"]
@@ -205,6 +197,14 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
     lambda_dis_ested_repr_vs_true_repr = hyperparameter_dict["lambda_dis_ested_repr_vs_true_repr"]
     lambda_host_dis_two_ested_repr = hyperparameter_dict["lambda_host_dis_two_ested_repr"]
 
+    # weights for auxiliary losses, which include:
+    # (1) loss for minimizing distance between shared representations between host and guest
+    # (2) (3) loss for minimizing similarity between shared representation and unique representation
+    # for host and guest respectively
+    # (4) loss for minimizing distance between estimated host overlap labels and true overlap labels
+    # (5) loss for minimizing distance between estimated guest overlap representation and true guest representation
+    # (6) loss for minimizing distance between estimated host overlap representation and true host representation
+    # (7) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
     loss_weight_list = [lambda_dis_shared_reprs,
                         lambda_sim_shared_reprs_vs_distinct_repr,
                         lambda_sim_shared_reprs_vs_distinct_repr,
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     estimation_block_size = 5000
     non_overlap_sample_batch_num = 40
     overlap_sample_batch_size = 128
-    non_overlap_sample_batch_size = 128
+    non_overlap_sample_batch_size = 256
     num_overlap = 500
     num_train = 40000
     test_start_index = 40000
@@ -377,8 +377,10 @@ if __name__ == "__main__":
 
     lambda_dis_shared_reprs = [1.0]
     lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
-    lambda_host_dis_ested_lbl_vs_true_lbl = [1]
-    lambda_dis_ested_repr_vs_true_repr = [0.1]
+    # lambda_host_dis_ested_lbl_vs_true_lbl = [1]
+    # lambda_dis_ested_repr_vs_true_repr = [0.1]
+    lambda_host_dis_ested_lbl_vs_true_lbl = [100]
+    lambda_dis_ested_repr_vs_true_repr = [100]
     lambda_host_dis_two_ested_repr = [0.1]
     learning_rate = [0.01]
 
@@ -406,9 +408,9 @@ if __name__ == "__main__":
 
     # hyperparam_list = list()
     # for lr in learning_rate:
-    #     for lbd_dist_shared_reprs in lambda_dis_shared_reprs:
-    #         for lbd_sim_shared_reprs in lambda_sim_shared_reprs_vs_distinct_repr:
-    #             for lbda_3 in lambda_host_dis_ested_lbl_vs_true_lbl:
+    #     for lbd_dis_shared_reprs in lambda_dis_shared_reprs:
+    #         for lbd_sim_shared_vs_dist_reprs in lambda_sim_shared_reprs_vs_distinct_repr:
+    #             for lbd_host_dis_ested_lbl_vs_true_lbl in lambda_host_dis_ested_lbl_vs_true_lbl:
     #                 for lbda_4 in lambda_dis_ested_repr_vs_true_repr:
     #                     for lbda_5 in lambda_host_dis_two_ested_repr:
     #                         hyperparam_list.append()

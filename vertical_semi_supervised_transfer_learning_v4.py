@@ -89,7 +89,7 @@ class VerticalFederatedTransferLearning(object):
         self.Y_overlap_for_est = self.vftl_guest.get_Y_overlap_for_est()
         Y_all_for_est = self.vftl_guest.get_Y_all_for_est()
 
-        # estimate non-overlap feature representations on host side for guest party for main objective loss
+        # estimate feature representations of missing samples of host corresponding to non-overlap samples of guest.
         Uh_non_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
             Ug_non_overlap_comm,
             Ug_non_overlap_uniq,
@@ -100,28 +100,17 @@ class VerticalFederatedTransferLearning(object):
             W_hg=W_hg)
         print("Uh_non_overlap_ested_reprs shape", Uh_non_overlap_ested_reprs.shape)
 
-        # estimate overlap feature representations on host side for guest party for alignment loss
-        Uh_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
-            Ug_overlap_comm,
-            Ug_overlap_uniq,
-            Ug_overlap_uniq,
-            Uh_overlap_uniq,
-            Uh_all_comm,
-            sharpen_temperature=sharpen_temp,
-            W_hg=W_hg)
-
-        # estimate non-overlap feature representations and labels on guest side for host party for main objective loss
-        # self.Ug_non_overlap_ested_reprs_w_lbls, self.uniq_lbls, self.comm_lbls = self.repr_estimator.estimate_labeled_guest_reprs_for_host_party(
-        #     Uh_non_overlap_comm,
-        #     Uh_non_overlap_uniq,
-        #     Uh_overlap_uniq,
+        # # estimate overlap feature representations on host side for guest party for alignment loss
+        # Uh_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
+        #     Ug_overlap_comm,
         #     Ug_overlap_uniq,
-        #     Ug_all_comm,
-        #     self.Y_overlap_for_est,
-        #     Y_all_for_est,
-        #     sharpen_tempature=sharpen_temp,
+        #     Ug_overlap_uniq,
+        #     Uh_overlap_uniq,
+        #     Uh_all_comm,
+        #     sharpen_temperature=sharpen_temp,
         #     W_hg=W_hg)
 
+        # estimate non-overlap feature representations and labels on guest side for host party for main objective loss
         self.Ug_non_overlap_ested_reprs_w_lbls, _, _ = self.repr_estimator.estimate_labeled_guest_reprs_for_host_party(
             Uh_non_overlap_comm,
             Uh_non_overlap_uniq,
@@ -153,6 +142,16 @@ class VerticalFederatedTransferLearning(object):
                                               axis=1)
         fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_uniq, Uh_non_overlap_comm],
                                                axis=1)
+
+        # estimate overlap feature representations on host side for guest party for alignment loss
+        Uh_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
+            Ug_overlap_comm,
+            Ug_overlap_uniq,
+            Ug_overlap_uniq,
+            Uh_overlap_uniq,
+            Uh_all_comm,
+            sharpen_temperature=sharpen_temp,
+            W_hg=W_hg)
 
         # estimate overlap feature representations and labels on guest side for host party for alignment loss
         result_overlap = self.repr_estimator.estimate_guest_reprs_n_lbls_for_host_party(Uh_uniq=Uh_overlap_uniq,
@@ -273,9 +272,6 @@ class VerticalFederatedTransferLearning(object):
         assistant_loss_list.append(host_uniq_reprs_loss)
 
         # (4) loss for distance between estimated host overlap labels and true labels
-        # TODO
-        # self.Ug_overlap_ested_lbl_loss = self.get_label_estimation_loss(self.Ug_overlap_ested_soft_lbls, Y_overlap)
-        # self.Y_overlap_test_ = Y_overlap
         Ug_ol_uniq_lbl_loss = self.get_label_estimation_loss(ol_uniq_lbls, Y_overlap)
         Ug_ol_comm_lbl_loss = self.get_label_estimation_loss(ol_comm_lbls, Y_overlap)
 
@@ -1244,7 +1240,7 @@ class VerticalFederatedTransferLearning(object):
                     ave_accuracy_2 = 2 / (1 / all_acc + 1 / g_fed_acc_mean)
                     print("[INFO] harmonic mean of fscore:", ave_fscore)
                     print("[INFO] harmonic mean of accuracy:", ave_accuracy)
-                    print("[INFO] harmonic mean of accuracy 2:", ave_accuracy_2)
+                    print("[INFO] harmonic mean of accuracy_2:", ave_accuracy_2)
                     log = {"fscore": all_acc,
                            "all_fscore": all_fscore, "g_fscore": g_fed_fscore_mean, "h_fscore": h_fscore_mean,
                            "all_acc": all_acc, "g_acc": g_fed_acc_mean, "h_acc": h_acc_mean,
