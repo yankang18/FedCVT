@@ -1,7 +1,7 @@
 import csv
 
 import numpy as np
-from sklearn.preprocessing.data import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.utils import shuffle
 
 

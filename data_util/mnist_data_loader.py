@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.utils import shuffle
 
-from data_util.cifar_data_loader import preprocess_and_save_data_v2, load_data_block, get_batch_num, \
+from data_util.preprocess_cifar_data import preprocess_and_save_data_v2, load_data_block, get_batch_num, \
     _preprocess_and_save_batches, _preprocess_and_save
 from data_util.common_data_util import one_hot_encode, normalize_w_min_max
 

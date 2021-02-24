@@ -72,8 +72,9 @@ class CNNFeatureExtractor(FeatureExtractor):
 
     def _add_loss_op(self):
         representation = self.forward_hidden(self.X_all_in)
-        logits = tf.compat.v1.layers.dense(inputs=representation, num_outputs=10, activation_fn=None)
-        model = tf.identity(logits, name='logits')  # Name logits Tensor, so that can be loaded from disk after training
+        logits = tf.compat.v1.layers.dense(inputs=representation, units=10, activation=None)
+        # Name logits Tensor, so that can be loaded from disk after training
+        # model = tf.identity(logits, name='logits')
 
         # Loss and Optimizer
         self.cost = tf.reduce_mean(input_tensor=tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.stop_gradient(self.y)))

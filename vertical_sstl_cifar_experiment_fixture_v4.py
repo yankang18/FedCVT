@@ -1,12 +1,19 @@
-import tensorflow as tf
 import json
-# from cnn_models_bk import CNNFeatureExtractor
-from cnn_models import ClientDeeperCNNFeatureExtractor, ClientCNNFeatureExtractor, ClientMiniVGG, ClientVGG8
-from data_util.cifar_data_util import TwoPartyCifar10DataLoader
+import time
+
+import tensorflow as tf
+
+from cnn_models import ClientVGG8
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
 from vertical_semi_supervised_transfer_learning_v4 import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
+
+
+def get_timestamp():
+    local_time = time.localtime(time.time())
+    timestamp = time.strftime("%Y%m%d%H%M%S", local_time)
+    return timestamp
 
 
 class ExpandingVFTLGuestConstructor(object):
@@ -97,13 +104,12 @@ class ExpandingVFTLHostConstructor(object):
 
 tag_PATH = "[INFO]"
 if __name__ == "__main__":
-    # prepare datasets
-
-    # dataset_folder_path = "../data/cifar-10-batches-py/"
-    # dataset_folder_path = "../data/fashionmnist_2000/"
-    dataset_folder_path = "../data/cifar-10-batches-py_500/"
-
+    dataset_folder_path = "../../data/cifar-10-batches-py_500/"
     print("{0} dataset_folder_path: {1}".format(tag_PATH, dataset_folder_path))
+
+    file_folder = "training_log_info/"
+    timestamp = get_timestamp()
+    file_name = file_folder + "test_csv_read_" + timestamp + ".csv"
 
     # configuration
     combine_axis = 1
@@ -126,19 +132,20 @@ if __name__ == "__main__":
     overlap_sample_batch_size = 128
     non_overlap_sample_batch_size = 128
 
-    # weights for auxiliary losses, which include:
-    # (1) loss for shared representations between host and guest
-    # (2) (3) loss for orthogonal representation for host and guest respectively
-    # (4) loss for distance between estimated host overlap labels and true overlap labels
-
-    # (5) loss for distance between estimated guest overlap representation and true guest representation
-    # (6) loss for distance between estimated host overlap representation and true host representation
-    # (7) loss for distance between shared-repr-estimated host label and uniq-repr-estimated host label
     # loss_weight_list = [1.0, 0.01, 0.01, 500, 0.1, 0.1, 0.1]
     # loss_weight_list = [100, 0.1, 0.1, 1000, 0.1, 0.1, 0.1]
     # loss_weight_list = [0.01, 0.001, 0.001, 100, 0.1, 0.1, 0.1]
     # loss_weight_list = [1.0, 0.1, 0.1, 1000, 0.1, 0.1, 0.1]
-    loss_weight_list = [0.1, 0.01, 0.01, 1000, 1000, 0.1, 0.1, 0.1]
+    # loss_weight_list = [0.1, 0.01, 0.01, 1000, 1000, 0.1, 0.1, 0.1]
+    loss_weight_dict = {"lambda_dist_shared_reprs": 0.1,
+                        "lambda_guest_sim_shared_reprs_vs_unique_repr": 0.01,
+                        "lambda_host_sim_shared_reprs_vs_unique_repr": 0.01,
+                        "lambda_host_dist_ested_uniq_lbl_vs_true_lbl": 1000,
+                        "lambda_host_dist_ested_comm_lbl_vs_true_lbl": 1000,
+                        "lambda_guest_dist_ested_repr_vs_true_repr": 0.1,
+                        "lambda_host_dist_ested_repr_vs_true_repr": 0.1,
+                        "lambda_host_dist_two_ested_lbl": 0.1}
+
     fed_model_param = FederatedModelParam(fed_input_dim=input_dim,
                                           guest_input_dim=guest_input_dim,
                                           fed_hidden_dim=hidden_dim,
@@ -147,7 +154,7 @@ if __name__ == "__main__":
                                           learning_rate=0.001,
                                           fed_reg_lambda=0.001,
                                           guest_reg_lambda=0.0,
-                                          loss_weight_dict=loss_weight_list,
+                                          loss_weight_dict=loss_weight_dict,
                                           # overlap_indices=overlap_indices,
                                           epoch=epoch,
                                           top_k=1,
@@ -159,14 +166,15 @@ if __name__ == "__main__":
                                           is_hetero_repr=False,
                                           sharpen_temperature=0.1,
                                           fed_label_prob_threshold=0.7,
-                                          host_label_prob_threshold=0.7)
+                                          host_label_prob_threshold=0.7,
+                                          training_info_file_name=file_name)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param)
     host_constructor = ExpandingVFTLHostConstructor(host_model_param)
 
     tf.compat.v1.reset_default_graph()
-    # tf.compat.v1.reset_default_graph()
+    tf.compat.v1.disable_eager_execution()
 
     # input_shape = (28, 14, 1)
     input_shape = (32, 16, 3)
@@ -178,7 +186,4 @@ if __name__ == "__main__":
     VFTL = VerticalFederatedTransferLearning(guest, host, fed_model_param)
     VFTL.set_representation_estimator(AttentionBasedRepresentationEstimator())
     VFTL.build()
-    result_log, loss_list = VFTL.train(debug=False)
-
-    print("result_log:", result_log)
-    # print("fed_model_param: \n", fed_model_param.__dict__)
+    VFTL.train(debug=False)

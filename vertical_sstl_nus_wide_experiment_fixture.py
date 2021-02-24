@@ -193,7 +193,7 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
     lambda_dist_ested_repr_vs_true_repr = hyperparameter_dict["lambda_dist_ested_repr_vs_true_repr"]
     lambda_host_dist_two_ested_lbl = hyperparameter_dict["lambda_host_dist_two_ested_lbl"]
 
-    # weights for auxiliary losses, which include:
+    # lambda for auxiliary losses, which include:
     # (1) loss for minimizing distance between shared representations between host and guest
     # (2) loss for minimizing similarity between shared representation and unique representation for guest
     # (3) loss for minimizing similarity between shared representation and unique representation for host
@@ -217,7 +217,7 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                                           guest_input_dim=int(input_dim / 2),
                                           using_block_idx=False,
                                           learning_rate=learning_rate,
-                                          fed_reg_lambda=0.001,
+                                          fed_reg_lambda=0.01,
                                           guest_reg_lambda=0.0,
                                           loss_weight_dict=loss_weight_dict,
                                           overlap_indices=overlap_indices,
@@ -264,23 +264,7 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
 
 if __name__ == "__main__":
 
-    # prepare datasets
-
-    # infile = "./datasets/"
-    # data_loader = TwoPartyBreastDataLoader(infile)
-    # X_guest_all, X_host_all, Y_guest_all = data_loader.get_data()
-    # Y_guest_all = np.expand_dims(Y_guest_all, axis=1)
-
-    # infile = "./datasets/UCI_Credit_Card/UCI_Credit_Card.csv"
-    # # split_index = 5, 11
-    # data_loader = TwoPartyUCICreditCardDataLoader(infile, split_index=5, balanced=False)
-    # X_host_all, X_guest_all, Y_guest_all = data_loader.get_data()
-    # Y_guest_all = np.expand_dims(Y_guest_all, axis=1)
-
-    # file_dir = "/datasets/app/fate/yankang/"
     file_dir = "../../data/"
-    # file_dir = "../"
-    # target_label_list = ["person", "animal", "sky"]
     target_label_list = ['sky', 'clouds', 'person', 'water', 'animal',
                          'grass', 'buildings', 'window', 'plants', 'lake']
     data_loader = TwoPartyNusWideDataLoader(file_dir)
@@ -366,11 +350,11 @@ if __name__ == "__main__":
     # lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
     # lambda_host_dis_ested_lbl_vs_true_lbl = [1]
     # lambda_dis_ested_repr_vs_true_repr = [0.1]
-    lambda_sim_shared_reprs_vs_distinct_repr = [0.1]
+    lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
     lambda_host_dis_ested_lbl_vs_true_lbl = [100]
     lambda_dis_ested_repr_vs_true_repr = [100]
     lambda_host_dis_two_ested_repr = [0.1]
-    learning_rate = [0.01, 0.005]
+    learning_rate = [0.01]
 
     file_folder = "training_log_info/"
     timestamp = get_timestamp()
@@ -385,15 +369,15 @@ if __name__ == "__main__":
     #                     for lbda_5 in lambda_host_dis_two_ested_repr:
     #                         hyperparam_list.append()
 
-    # weights for auxiliary losses, which include:
+    # lambda for auxiliary losses, which include:
     # (1) loss for minimizing distance between shared representations between host and guest
-    # (2) (3) loss for minimizing similarity between shared representation and distinct representation
-    # for host and guest respectively
-    # (4) loss for minimizing distance between estimated host overlap labels and true overlap labels
-    # (5) loss for minimizing distance between estimated guest overlap representation and true guest representation
-    # (6) loss for minimizing distance between estimated host overlap representation and true host representation
-    # (7) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
-    # loss_weight_list = [1.0, 0.01, 0.01, 1500, 1.0, 1.0, 1.0]
+    # (2) loss for minimizing similarity between shared representation and unique representation for guest
+    # (3) loss for minimizing similarity between shared representation and unique representation for host
+    # (4) loss for minimizing distance between estimated host unique overlap labels and true overlap labels
+    # (5) loss for minimizing distance between estimated host common overlap labels and true overlap labels
+    # (6) loss for minimizing distance between estimated guest overlap representation and true guest representation
+    # (7) loss for minimizing distance between estimated host overlap representation and true host representation
+    # (8) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
     hyperparameter_dict = dict()
     for lbda_7 in learning_rate:
         for lbda_1 in lambda_dis_shared_reprs:

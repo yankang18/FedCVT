@@ -550,10 +550,8 @@ class VerticalFederatedTransferLearning(object):
 
             # predict host labels by attention-based estimation
             host_side_pred_feed_dict = self.vftl_host.get_one_side_predict_feed_dict()
-            # guest_assistant_pred_feed_dict = self.vftl_guest.get_assist_host_side_predict_feed_dict(
-            #     block_indices=guest_block_indices)
             host_side_pred_feed_dict.update(guest_assistant_pred_feed_dict)
-            # fl_y_prob_host_side = sess.run(self.logistic_regressor.y_hat_host_side, feed_dict=host_side_pred_feed_dict)
+
             fl_y_prob_host_side, fl_y_reprs = sess.run([self.fed_lr.y_hat_host_side, self.fed_lr.reprs],
                                                        feed_dict=host_side_pred_feed_dict)
             # aggregation of federated model and attention-based estimation

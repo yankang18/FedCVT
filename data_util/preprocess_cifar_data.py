@@ -129,58 +129,58 @@ def _preprocess_and_save(normalize, one_hot_encode, features, labels, filename):
     pickle.dump((features, labels), open(filename, 'wb'))
 
 
-def preprocess_and_save_data(dataset_folder_path, normalize_func, one_hot_encode_func):
-    n_batches = 5
-
-    valid_features = []
-    valid_labels = []
-
-    for batch_i in range(1, n_batches + 1):
-        features, labels = load_cfar10_batch(dataset_folder_path, batch_i)
-
-        print("features shape {0}".format(features.shape))
-        print("labels shape {0}".format(len(labels)))
-
-        # find index to be the point as validation data in the whole dataset of the batch (10%)
-        index_of_validation = int(len(features) * 0.1)
-
-        # preprocess the 90% of the whole dataset of the batch
-        # - normalize the features
-        # - one_hot_encode the lables
-        # - save in a new file named, "preprocess_batch_" + batch_number
-        # - each file for each batch
-        train_file_full_path = dataset_folder_path + 'preprocess_batch_' + str(batch_i) + '.p'
-        _preprocess_and_save(normalize_func, one_hot_encode_func,
-                             features[:-index_of_validation], labels[:-index_of_validation],
-                             train_file_full_path)
-
-        # unlike the training dataset, validation dataset will be added through all batch dataset
-        # - take 10% of the whold dataset of the batch
-        # - add them into a list of
-        #   - valid_features
-        #   - valid_labels
-        valid_features.extend(features[-index_of_validation:])
-        valid_labels.extend(labels[-index_of_validation:])
-
-    # preprocess the all stacked validation dataset
-    val_file_full_path = dataset_folder_path + 'preprocess_validation.p'
-    _preprocess_and_save(normalize_func, one_hot_encode_func,
-                         np.array(valid_features), np.array(valid_labels),
-                         val_file_full_path)
-
-    # load the test dataset
-    with open(dataset_folder_path + '/test_batch', mode='rb') as file:
-        batch = pickle.load(file, encoding='latin1')
-
-    # preprocess the testing data
-    test_features = batch['data'].reshape((len(batch['data']), 3, 32, 32)).transpose(0, 2, 3, 1)
-    test_labels = batch['labels']
-
-    # Preprocess and Save all testing data
-    test_file_full_path = dataset_folder_path + 'preprocess_test.p'
-    _preprocess_and_save(normalize_func, one_hot_encode_func,
-                         np.array(test_features), np.array(test_labels),
-                         test_file_full_path)
+# def preprocess_and_save_data(dataset_folder_path, normalize_func, one_hot_encode_func):
+#     n_batches = 5
+#
+#     valid_features = []
+#     valid_labels = []
+#
+#     for batch_i in range(1, n_batches + 1):
+#         features, labels = load_cfar10_batch(dataset_folder_path, batch_i)
+#
+#         print("features shape {0}".format(features.shape))
+#         print("labels shape {0}".format(len(labels)))
+#
+#         # find index to be the point as validation data in the whole dataset of the batch (10%)
+#         index_of_validation = int(len(features) * 0.1)
+#
+#         # preprocess the 90% of the whole dataset of the batch
+#         # - normalize the features
+#         # - one_hot_encode the lables
+#         # - save in a new file named, "preprocess_batch_" + batch_number
+#         # - each file for each batch
+#         train_file_full_path = dataset_folder_path + 'preprocess_batch_' + str(batch_i) + '.p'
+#         _preprocess_and_save(normalize_func, one_hot_encode_func,
+#                              features[:-index_of_validation], labels[:-index_of_validation],
+#                              train_file_full_path)
+#
+#         # unlike the training dataset, validation dataset will be added through all batch dataset
+#         # - take 10% of the whold dataset of the batch
+#         # - add them into a list of
+#         #   - valid_features
+#         #   - valid_labels
+#         valid_features.extend(features[-index_of_validation:])
+#         valid_labels.extend(labels[-index_of_validation:])
+#
+#     # preprocess the all stacked validation dataset
+#     val_file_full_path = dataset_folder_path + 'preprocess_validation.p'
+#     _preprocess_and_save(normalize_func, one_hot_encode_func,
+#                          np.array(valid_features), np.array(valid_labels),
+#                          val_file_full_path)
+#
+#     # load the test dataset
+#     with open(dataset_folder_path + '/test_batch', mode='rb') as file:
+#         batch = pickle.load(file, encoding='latin1')
+#
+#     # preprocess the testing data
+#     test_features = batch['data'].reshape((len(batch['data']), 3, 32, 32)).transpose(0, 2, 3, 1)
+#     test_labels = batch['labels']
+#
+#     # Preprocess and Save all testing data
+#     test_file_full_path = dataset_folder_path + 'preprocess_test.p'
+#     _preprocess_and_save(normalize_func, one_hot_encode_func,
+#                          np.array(test_features), np.array(test_labels),
+#                          test_file_full_path)
 
 
 def get_batch_num(all_sample_size, batch_size):
@@ -484,10 +484,10 @@ def preprocess_and_save_data_v2(from_dataset_folder_path,
 
 
 if __name__ == "__main__":
-    data_path = "../../data/"
+    data_path = "../../../data/"
     cifar10_dataset_folder_path = data_path + "cifar-10-batches-py"
 
-    num_overlap_samples = 250
+    num_overlap_samples = 500
     to_processed_data_folder_path = cifar10_dataset_folder_path + "_" + str(num_overlap_samples)
 
     if not os.path.exists(to_processed_data_folder_path):
