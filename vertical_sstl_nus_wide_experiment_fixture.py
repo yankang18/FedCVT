@@ -7,7 +7,7 @@ import tensorflow as tf
 from autoencoder import Autoencoder
 from data_util.nus_wide_processed_data_util import TwoPartyNusWideDataLoader
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
-from vertical_semi_supervised_transfer_learning_v4 import VerticalFederatedTransferLearning
+from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
 
@@ -343,7 +343,7 @@ if __name__ == "__main__":
     # lambda_host_dis_ested_lbl_vs_true_lbl = [1]
     # lambda_dis_ested_repr_vs_true_repr = [1]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.1]
-    lambda_host_dis_ested_lbls_vs_true_lbls = [1000]
+    lambda_host_dis_ested_lbls_vs_true_lbls = [10]
     lambda_dis_ested_reprs_vs_true_reprs = [0.1]
     lambda_host_dist_two_ested_lbls = [0.1]
     # learning_rate = [0.01, 0.005]

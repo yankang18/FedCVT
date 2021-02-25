@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from cnn_models import ClientVGG8
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
-from vertical_semi_supervised_transfer_learning_v4 import VerticalFederatedTransferLearning
+from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
 

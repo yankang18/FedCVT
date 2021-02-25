@@ -1049,9 +1049,9 @@ class VerticalFederatedTransferLearning(object):
                 nol_guest_block_size = self.vftl_guest.load_nol_block(nol_guest_block_idx)
                 nol_host_block_size = self.vftl_host.load_nol_block(nol_host_block_idx)
 
-                iter = 0
+                iteration = 0
                 while True:
-                    print("[INFO] => iter:{0} of ep: {1}".format(iter, i))
+                    print("[INFO] => iteration:{0} of ep: {1}".format(iteration, i))
                     if ol_end >= ol_guest_block_size:
                         ol_block_idx += 1
                         if ol_block_idx == ol_block_num:
@@ -1241,7 +1241,7 @@ class VerticalFederatedTransferLearning(object):
                            "all_auc": all_auc, "g_auc": g_fed_auc_mean, "h_auc": h_auc_mean}
 
                     early_stopping.on_iteration_end(epoch=i, batch=nol_guest_batch_idx, log=log)
-                    iter += 1
+                    iteration += 1
                     if self.stop_training is True:
                         break
 
