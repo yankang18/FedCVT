@@ -38,6 +38,14 @@ class ExpandingVFTLParty(object):
         U_overlap_comm = self.local_model_prime.get_overlap_hidden_reprs()
         U_non_overlap_uniq = self.local_model.get_non_overlap_hidden_reprs()
         U_non_overlap_comm = self.local_model_prime.get_non_overlap_hidden_reprs()
+
+        U_all_uniq = tf.math.l2_normalize(U_all_uniq, axis=1)
+        U_all_comm = tf.math.l2_normalize(U_all_comm, axis=1)
+        U_overlap_uniq = tf.math.l2_normalize(U_overlap_uniq, axis=1)
+        U_overlap_comm = tf.math.l2_normalize(U_overlap_comm, axis=1)
+        U_non_overlap_uniq = tf.math.l2_normalize(U_non_overlap_uniq, axis=1)
+        U_non_overlap_comm = tf.math.l2_normalize(U_non_overlap_comm, axis=1)
+
         return (U_all_uniq, U_all_comm), (U_non_overlap_uniq, U_non_overlap_comm), (U_overlap_uniq, U_overlap_comm)
 
 

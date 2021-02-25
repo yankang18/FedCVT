@@ -2,9 +2,9 @@ import tensorflow as tf
 from tensorflow.python.ops import tensor_array_ops
 
 
-def sharpen(p, temperature=0.1):
+def sharpen(p, temperature=0.1, axis=1):
     u = tf.math.pow(p, 1 / temperature)
-    return u / tf.math.reduce_sum(input_tensor=u, axis=1, keepdims=True)
+    return u / tf.math.reduce_sum(input_tensor=u, axis=axis, keepdims=True)
 
 
 def compute_queries_keys_sim(queries, keys, Wqk=None):
@@ -96,32 +96,6 @@ class AttentionBasedRepresentationEstimator(object):
         comm_reprs = tf.matmul(softmax_matrix_comm, Ug_all_comm)
         comm_lbls = tf.matmul(softmax_matrix_comm, Yg_all)
         return uniq_reprs, uniq_lbls, comm_reprs, comm_lbls
-
-    # @staticmethod
-    # def estimate_guest_side_reprs_for_host_party(Uh_comm,
-    #                                                 Uh_uniq,
-    #                                                 Uh_overlap_uniq,
-    #                                                 Ug_overlap_uniq,
-    #                                                 Ug_all_comm,
-    #                                                 Yg_overlap,
-    #                                                 Yg_all,
-    #                                                 sharpen_tempature=0.1,
-    #                                                 W_hg=None):
-    #     softmax_matrix_uniq = compute_softmax_matrix(queries=Uh_uniq,
-    #                                                  keys=Uh_overlap_uniq,
-    #                                                  sharpen_tempature=sharpen_tempature,
-    #                                                  Wqk=W_hg)
-    #     softmax_matrix_comm = compute_softmax_matrix(queries=Uh_comm,
-    #                                                  keys=Ug_all_comm,
-    #                                                  sharpen_tempature=sharpen_tempature,
-    #                                                  Wqk=W_hg)
-    #
-    #     uniq_reprs = tf.matmul(softmax_matrix_uniq, Ug_overlap_uniq)
-    #     uniq_lbls = tf.matmul(softmax_matrix_uniq, Yg_overlap)
-    #
-    #     comm_reprs = tf.matmul(softmax_matrix_comm, Ug_all_comm)
-    #     comm_lbls = tf.matmul(softmax_matrix_comm, Yg_all)
-    #     return uniq_reprs, uniq_lbls, comm_reprs, comm_lbls
 
     @staticmethod
     def estimate_unique_comm_labels_for_host_party(Uh_comm,
@@ -268,9 +242,9 @@ class AttentionBasedRepresentationEstimator(object):
             # fetch guest_lr labels
             condidate_lbl_2 = reprs_w_candidate_labels[j, -2 * n_class:-n_class]
 
-            print("reprs", reprs)
-            print("condidate_lbl_1", condidate_lbl_1)
-            print("condidate_lbl_2", condidate_lbl_2)
+            # print("reprs", reprs)
+            # print("condidate_lbl_1", condidate_lbl_1)
+            # print("condidate_lbl_2", condidate_lbl_2)
 
             index_1 = tf.argmax(input=condidate_lbl_1)
             index_2 = tf.argmax(input=condidate_lbl_2)
@@ -283,44 +257,28 @@ class AttentionBasedRepresentationEstimator(object):
                                                       tf.math.greater(prob_2, host_label_upper_bound))
             to_gather = tf.math.logical_and(is_same_class, is_beyond_threshold)
 
-            # a_condidate_lbl_1 = tf.expand_dims(condidate_lbl_1, axis=0)
-            # s_condidate_lbl_1 = sharpen(a_condidate_lbl_1, tempature=0.01)
-            # print("s_condidate_lbl_1:", s_condidate_lbl_1)
-
-            # pos_label = tf.constant(1, dtype=tf.float32)
-            # neg_label = tf.constant(0, dtype=tf.float32)
-            # s_condidate_lbl_1 = tf.map_fn(lambda lbl: tf.cond(lbl > 0.5, lambda: pos_label, lambda: neg_label),
-            #                               s_condidate_lbl_1, parallel_iterations=200)
-
             def f1():
-                print("---> f1")
+                # selected
+                print("---> f1:selected")
 
                 a_reprs = tf.expand_dims(reprs, axis=0)
                 print("a_reprs:", a_reprs)
                 fed_condidate_lbl = reprs_w_candidate_labels[j, -n_class:]
                 a_condidate_lbl_1 = tf.expand_dims(fed_condidate_lbl, axis=0)
-                s_condidate_lbl_1 = sharpen(a_condidate_lbl_1, temperature=0.1)
-                print("s_condidate_lbl_1:", s_condidate_lbl_1)
-
-                concate_reprs_w_lbls = tf.concat((a_reprs, s_condidate_lbl_1), axis=1)
+                concate_reprs_w_lbls = tf.concat((a_reprs, a_condidate_lbl_1), axis=1)
                 print("concate_reprs_w_lbls:", concate_reprs_w_lbls)
                 row_update = row.write(i, concate_reprs_w_lbls)
                 # row_update = row.write(i, temp)
                 return i + 1, j + 1, row_update
 
             def f2():
-                print("---> f2")
+                print("---> f2:unselected")
                 return i, j + 1, row
 
             i, j, row_update = tf.cond(pred=to_gather, true_fn=f1, false_fn=f2)
             return [i, j, row_update]
 
         _, _, list_vals = tf.while_loop(cond=cond, body=body, loop_vars=[0, 0, dynamic_array])
-
-        # reprs_w_labels = list_vals.concat()
-        # reprs = reprs_w_labels[:, :-n_class]
-        # labels = reprs_w_labels[:, -n_class:]
-        # return reprs, labels
         return list_vals
 
     def __repr__(self):

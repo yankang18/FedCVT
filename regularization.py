@@ -12,10 +12,10 @@ from collections import OrderedDict
 
 class EarlyStoppingCheckPoint(object):
 
-    def __init__(self, monitor="acc", patience=5, iter_patience=500, file_path=None):
+    def __init__(self, monitor="acc", epoch_patience=5, iter_patience=500, file_path=None):
         self.model = None
         self.monitor = monitor
-        self.epoch_patience = patience
+        self.epoch_patience = epoch_patience
         self.iter_patience = iter_patience
         self.file_path = file_path
         self.wait_iter = 0

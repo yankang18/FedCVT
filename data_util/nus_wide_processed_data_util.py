@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.utils import shuffle
+from sklearn.preprocessing import StandardScaler, Normalizer
 
 # you may need to put the correct data directory here.
 all_label_path = "NUS_WIDE/Groundtruth/AllLabels"
@@ -27,13 +28,15 @@ def get_top_k_labels(data_dir, top_k=5):
     label_counts = {}
     for filename in os.listdir(os.path.join(data_dir, all_label_path)):
         file = os.path.join(data_dir, all_label_path, filename)
+        print("file:", file)
         if os.path.isfile(file):
             label = file[:-4].split("_")[-1]
-            df = pd.read_csv(os.path.join(data_dir, file))
+            df = pd.read_csv(os.path.join(file))
             df.columns = ['label']
             label_counts[label] = (df[df['label'] == 1].shape[0])
     label_counts = sorted(label_counts.items(), key=lambda x: x[1], reverse=True)
-    selected = [k for (k, v) in label_counts[:top_k]]
+    print("label_counts:", label_counts)
+    selected = [(k, v) for (k, v) in label_counts[:top_k]]
     return selected
 
 
@@ -83,6 +86,9 @@ def get_labeled_data(data_dir, selected_label, n_samples, dtype="Train"):
     all_text_features.dropna(axis=1, inplace=True)
     print(f"[INFO] text feature ({file}) with ({len(all_text_features.columns)}) dimension.")
     selected_text_features = all_text_features.loc[selected_labels.index]
+
+    # scaler = StandardScaler()
+    # selected_text_features = scaler.fit_transform(selected_text_features)
 
     print(f"[INFO] image data shape:{selected_image_features.shape}, text data shape:{selected_text_features.shape}")
 
@@ -190,3 +196,9 @@ class TwoPartyNusWideDataLoader(object):
         labels = np.array(binary_labels)
         image, text, labels = shuffle(image, text, labels)
         return image, text, labels
+
+
+if __name__ == "__main__":
+    file_dir = "../../../data/"
+    kkk = get_top_k_labels(file_dir, top_k=20)
+    print(kkk)

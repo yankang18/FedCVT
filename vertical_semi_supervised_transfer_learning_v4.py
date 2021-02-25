@@ -11,6 +11,7 @@ from logistic_regression import LogisticRegression
 from regularization import EarlyStoppingCheckPoint
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
+from vertical_sstl_representation_learner import sharpen
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
@@ -133,10 +134,13 @@ class VerticalFederatedTransferLearning(object):
                                                axis=1)
 
         # estimate labels for federated feature representations with guest's representations estimated.
-        self.nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
+        nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
 
         # estimate labels for estimated feature representations of missing samples of guest
-        self.nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
+        nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
+
+        self.nl_ested_lbls_for_fed_ested_guest_reprs = sharpen(nl_ested_lbls_for_fed_ested_guest_reprs, temperature=0.3)
+        self.nl_ested_lbls_for_lr_ested_guest_reprs = sharpen(nl_ested_lbls_for_lr_ested_guest_reprs, temperature=0.3)
 
         print("fed_nl_w_guest_ested_reprs:", fed_nl_w_guest_ested_reprs)
         print("nl_ested_lbls_for_att_ested_guest_reprs:", self.nl_ested_lbls_for_att_ested_guest_reprs)
@@ -332,11 +336,11 @@ class VerticalFederatedTransferLearning(object):
         print("loss_weight_dict: {0}".format(loss_weight_dict))
         print("################################################")
 
-        self.guest_lr = LogisticRegression(2)
-        self.guest_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
-
         self.fed_lr = LogisticRegression(1)
         self.fed_lr.build(input_dim=fed_input_dim, n_class=self.n_class, hidden_dim=fed_hidden_dim)
+
+        self.guest_lr = LogisticRegression(2)
+        self.guest_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
 
         train_components, repr_list = self._do_build()
         self.fed_reprs, guest_reprs, self.fed_Y, guest_Y, self.assistant_loss_dict = train_components
@@ -349,7 +353,6 @@ class VerticalFederatedTransferLearning(object):
         self.fed_lr.set_loss_factors(self.assistant_loss_dict, loss_weight_dict)
         self.fed_lr.set_ops(learning_rate=learning_rate, reg_lambda=fed_reg_lambda,
                             tf_X_in=self.fed_reprs, tf_labels_in=self.fed_Y)
-
         self.fed_lr.set_two_sides_predict_ops(fed_overlap_reprs)
 
         # fed_nl_w_host_ested_reprs are the federated non-overlap representations, the host side of which are estimated.
@@ -396,10 +399,7 @@ class VerticalFederatedTransferLearning(object):
 
     @staticmethod
     def convert_to_1d_labels(y_prob):
-        # print("y_prob:", y_prob)
-        # y_hat = [1 if y > 0.5 else 0 for y in y_prob]
         y_1d = np.argmax(y_prob, axis=1)
-        # return np.array(y_hat)
         return y_1d
 
     def f_score(self, precision, recall):
@@ -418,6 +418,7 @@ class VerticalFederatedTransferLearning(object):
         y_hat_1d = self.convert_to_1d_labels(y_prob_two_sides)
         y_test_1d = self.convert_to_1d_labels(y_test)
 
+        debug = True
         if debug:
             print("[DEBUG] y_prob_two_sides shape {0}".format(y_prob_two_sides.shape))
             print("[DEBUG] y_prob_two_sides {0}".format(y_prob_two_sides))
@@ -738,7 +739,7 @@ class VerticalFederatedTransferLearning(object):
                 self.assistant_loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'],
                 self.assistant_loss_dict['lambda_host_dist_ested_repr_vs_true_repr'],
                 self.assistant_loss_dict['lambda_host_dist_two_ested_lbl'],
-                self.fed_lr.regularization_loss,
+                self.fed_lr.reg_loss,
                 self.fed_lr.pred_loss,
                 self.fed_lr.mean_pred_loss,
                 self.fed_lr.loss,
@@ -857,16 +858,18 @@ class VerticalFederatedTransferLearning(object):
             fed_lbl_prob = np.max(fed_lbl)
             lr_lbl_prob = np.max(lr_lbl)
             att_lbl_prob = np.max(att_lbl)
-            if fed_lbl_idx == lr_lbl_idx:
-
-                if present_count < 10:
-                    print("att         lr       fed")
-                    print("[{0}]:{1}, [{2}]:{3}, [{4}]:{5}".format(att_lbl_idx, att_lbl_prob,
-                                                                   lr_lbl_idx, lr_lbl_prob,
-                                                                   fed_lbl_idx, fed_lbl_prob))
+            # print("fed_lbl:", fed_lbl)
+            # print("lr_lbl:", lr_lbl)
+            # if fed_lbl_idx == lr_lbl_idx and lr_lbl_prob > 0.6 and fed_lbl_prob > 0.6:
+            if fed_lbl_idx == lr_lbl_idx and present_count < 20:
+                # if present_count < 20:
+                print("att         lr       fed")
+                print("[{0}]:{1}, [{2}]:{3}, [{4}]:{5}".format(att_lbl_idx, att_lbl_prob,
+                                                               lr_lbl_idx, lr_lbl_prob,
+                                                               fed_lbl_idx, fed_lbl_prob))
                 present_count += 1
 
-        print("total number of equal predictions: {0}".format(present_count))
+        print("total number of equal predictions: {0}/{1}".format(present_count, len(Ug_non_overlap_ested_lbls)))
 
         debug_detail = False
         if True:
@@ -993,7 +996,7 @@ class VerticalFederatedTransferLearning(object):
         host_block_indices = None
         estimation_block_size = None
 
-        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", patience=200, file_path=training_info_file_name)
+        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", epoch_patience=3, file_path=training_info_file_name)
         early_stopping.set_model(self)
         early_stopping.on_train_begin()
 
@@ -1152,7 +1155,7 @@ class VerticalFederatedTransferLearning(object):
                                        host_block_indices=host_block_indices,
                                        debug=debug)
                     loss_list.append(loss)
-                    print("")
+
                     print("[INFO] ep:{0}, ol_batch_idx:{1}, nol_guest_batch_idx:{2}, nol_host_batch_idx:{3}, loss:{4}"
                           .format(i, ol_batch_idx, nol_guest_batch_idx, nol_host_batch_idx, loss))
                     print("[INFO] ol_block_idx:{0}, nol_guest_block_idx:{1}, nol_host_block_idx:{2}, "

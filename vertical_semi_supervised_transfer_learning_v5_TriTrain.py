@@ -765,7 +765,7 @@ class VerticalFederatedTransferLearning(object):
                 self.assistant_loss_list[5],
                 self.assistant_loss_list[6],
                 self.assistant_loss_list[7],
-                self.fed_lr.regularization_loss,
+                self.fed_lr.reg_loss,
                 self.fed_lr.pred_loss,
                 self.fed_lr.mean_pred_loss,
                 self.fed_lr.loss,
@@ -1019,7 +1019,7 @@ class VerticalFederatedTransferLearning(object):
         host_block_indices = None
         estimation_block_size = None
 
-        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", patience=200)
+        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", epoch_patience=200)
         early_stopping.set_model(self)
         early_stopping.on_train_begin()
 

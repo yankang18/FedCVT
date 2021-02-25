@@ -130,40 +130,28 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
     print("X_host_test shape", X_host_test.shape)
     print("y_test shape", y_test.shape)
 
-    print("check data")
-    print("X_guest_train: ", X_guest_train.shape)
-    # for idx, X_guest_train_i in enumerate(X_guest_train):
-    #     if np.all(X_guest_train_i == 0):
-    #         print("X_guest_train_i", idx, X_guest_train_i, np.sum(X_guest_train_i), len(X_guest_train_i))
+    sample_num = num_overlap / 10
+    lbl_sample_idx_dict = {}
+    for index, one_hot_lbl in enumerate(Y_all):
+        lbl_index = np.argmax(one_hot_lbl)
+        sample_idx_list = lbl_sample_idx_dict.get(lbl_index)
+        if sample_idx_list is None:
+            lbl_sample_idx_dict[lbl_index] = [index]
+        elif len(sample_idx_list) < sample_num:
+            lbl_sample_idx_dict[lbl_index].append(index)
+    print("lbl_sample_idx_dict:\n", lbl_sample_idx_dict)
 
-    print("X_guest_test: ", X_guest_test.shape)
-    # for idx, X_guest_test_i in enumerate(X_guest_test):
-    #     if np.all(X_guest_test_i == 0):
-    #         print("X_guest_test_i", idx, X_guest_test_i, np.sum(X_guest_test_i), len(X_guest_test_i))
-
-    print("X_host_train: ", X_host_train.shape)
-    # for idx, X_host_train_i in enumerate(X_host_train):
-    #     if np.all(X_host_train_i == 0):
-    #         print("X_host_train_i", idx, X_host_train_i, np.sum(X_host_train_i), len(X_host_train_i))
-
-    print("X_host_test: ", X_host_test.shape)
-    # for idx, X_host_test_i in enumerate(X_host_test):
-    #     if np.all(X_host_test_i == 0):
-    #         print("X_host_test_i", idx, X_host_test_i, np.sum(X_host_test_i), len(X_host_test_i))
+    overlap_indices = list()
+    for k, v in lbl_sample_idx_dict.items():
+        overlap_indices += lbl_sample_idx_dict[k]
+    print("overlap_indices:\n", overlap_indices, len(overlap_indices))
 
     # configuration
-    overlap_indices = [i for i in range(num_overlap)]
+    # overlap_indices = [i for i in range(num_overlap)]
     non_overlap_indices = np.setdiff1d(range(num_train), overlap_indices)
     combine_axis = 1
 
     num_non_overlap = num_train - num_overlap
-
-    # guest_second_to_last_dim = 10
-    # guest_hidden_dim = 8
-    # host_second_to_last_dim = 10
-    # host_hidden_dim = 8
-    # guest_second_to_last_dim = 200
-    # host_second_to_last_dim = 200
 
     guest_hidden_dim = 32
     host_hidden_dim = 32
@@ -217,8 +205,8 @@ def run_experiment(X_guest_all, X_host_all, Y_guest_all, num_overlap,
                                           guest_input_dim=int(input_dim / 2),
                                           using_block_idx=False,
                                           learning_rate=learning_rate,
-                                          fed_reg_lambda=0.01,
-                                          guest_reg_lambda=0.0,
+                                          fed_reg_lambda=0.0001,
+                                          guest_reg_lambda=0.0001,
                                           loss_weight_dict=loss_weight_dict,
                                           overlap_indices=overlap_indices,
                                           non_overlap_indices=non_overlap_indices,
@@ -267,6 +255,8 @@ if __name__ == "__main__":
     file_dir = "../../data/"
     target_label_list = ['sky', 'clouds', 'person', 'water', 'animal',
                          'grass', 'buildings', 'window', 'plants', 'lake']
+    # target_label_list = ['sky', 'clouds', 'water', 'flowers', 'ocean',
+    #                      'grass', 'buildings', 'window', 'plants', 'lake']
     data_loader = TwoPartyNusWideDataLoader(file_dir)
     X_image_all, X_text_all, Y_all = data_loader.get_train_data(target_labels=target_label_list,
                                                                 binary_classification=False)
@@ -296,22 +286,22 @@ if __name__ == "__main__":
     X_text = X_text_all[idx_valid_sample_list]
     Y = Y_all[idx_valid_sample_list]
 
-    print("X_image: ", X_image.shape)
-    has_invalid_image_sample = False
-    for idx, X_image_i in enumerate(X_image):
-        if np.all(X_image_i == 0):
-            has_invalid_image_sample = True
-            print("X_image_i", idx, np.sum(X_image_i), len(X_image_i))
-
-    has_invalid_text_sample = False
-    print("X_text: ", X_text.shape)
-    for idx, X_text_id in enumerate(X_text):
-        if np.all(X_text_id == 0):
-            has_invalid_text_sample = True
-            print("X_text_id", idx, np.sum(X_text_id), len(X_text_id))
-
-    print("has_invalid_image_sample: {0}".format(has_invalid_image_sample))
-    print("has_invalid_text_sample: {0}".format(has_invalid_text_sample))
+    # print("X_image: ", X_image.shape)
+    # has_invalid_image_sample = False
+    # for idx, X_image_i in enumerate(X_image):
+    #     if np.all(X_image_i == 0):
+    #         has_invalid_image_sample = True
+    #         print("X_image_i", idx, np.sum(X_image_i), len(X_image_i))
+    #
+    # has_invalid_text_sample = False
+    # print("X_text: ", X_text.shape)
+    # for idx, X_text_id in enumerate(X_text):
+    #     if np.all(X_text_id == 0):
+    #         has_invalid_text_sample = True
+    #         print("X_text_id", idx, np.sum(X_text_id), len(X_text_id))
+    #
+    # print("has_invalid_image_sample: {0}".format(has_invalid_image_sample))
+    # print("has_invalid_text_sample: {0}".format(has_invalid_text_sample))
 
     X_guest_all = X_image
     X_host_all = X_text
@@ -336,6 +326,8 @@ if __name__ == "__main__":
     num_overlap = 500
     num_train = 40000
     test_start_index = 40000
+    # num_train = 25000
+    # test_start_index = 25000
     print("num_train", num_train)
     print("test_start_index", test_start_index)
 
@@ -347,13 +339,14 @@ if __name__ == "__main__":
     # learning_rate = [0.01, 0.05, 0.1]
 
     lambda_dis_shared_reprs = [1.0]
-    # lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
+    # lambda_sim_shared_reprs_vs_distinct_repr = [0.1]
     # lambda_host_dis_ested_lbl_vs_true_lbl = [1]
-    # lambda_dis_ested_repr_vs_true_repr = [0.1]
-    lambda_sim_shared_reprs_vs_distinct_repr = [0.01]
-    lambda_host_dis_ested_lbl_vs_true_lbl = [100]
-    lambda_dis_ested_repr_vs_true_repr = [100]
-    lambda_host_dis_two_ested_repr = [0.1]
+    # lambda_dis_ested_repr_vs_true_repr = [1]
+    lambda_sim_shared_reprs_vs_uniq_reprs = [0.1]
+    lambda_host_dis_ested_lbls_vs_true_lbls = [1000]
+    lambda_dis_ested_reprs_vs_true_reprs = [0.1]
+    lambda_host_dist_two_ested_lbls = [0.1]
+    # learning_rate = [0.01, 0.005]
     learning_rate = [0.01]
 
     file_folder = "training_log_info/"
@@ -379,13 +372,13 @@ if __name__ == "__main__":
     # (7) loss for minimizing distance between estimated host overlap representation and true host representation
     # (8) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
     hyperparameter_dict = dict()
-    for lbda_7 in learning_rate:
+    for lbda_0 in learning_rate:
         for lbda_1 in lambda_dis_shared_reprs:
-            for lbda_2 in lambda_sim_shared_reprs_vs_distinct_repr:
-                for lbda_3 in lambda_host_dis_ested_lbl_vs_true_lbl:
-                    for lbda_4 in lambda_dis_ested_repr_vs_true_repr:
-                        for lbda_5 in lambda_host_dis_two_ested_repr:
-                            hyperparameter_dict["learning_rate"] = lbda_7
+            for lbda_2 in lambda_sim_shared_reprs_vs_uniq_reprs:
+                for lbda_3 in lambda_host_dis_ested_lbls_vs_true_lbls:
+                    for lbda_4 in lambda_dis_ested_reprs_vs_true_reprs:
+                        for lbda_5 in lambda_host_dist_two_ested_lbls:
+                            hyperparameter_dict["learning_rate"] = lbda_0
                             hyperparameter_dict["lambda_dist_shared_reprs"] = lbda_1
                             hyperparameter_dict["lambda_sim_shared_reprs_vs_unique_repr"] = lbda_2
                             hyperparameter_dict["lambda_host_dist_ested_lbl_vs_true_lbl"] = lbda_3

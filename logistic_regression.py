@@ -124,7 +124,7 @@ class LogisticRegression(object):
 
     def _add_e2e_training_ops(self):
         # regularization loss
-        self.regularization_loss = tf.add_n([tf.nn.l2_loss(tf.cast(v, tf.float32)) for v in tf.compat.v1.trainable_variables()])
+        self.reg_loss = tf.add_n([tf.nn.l2_loss(tf.cast(v, tf.float32)) for v in tf.compat.v1.trainable_variables()])
         if self.tf_labels_in is None:
             self.pred_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.labels)
         else:
@@ -132,10 +132,11 @@ class LogisticRegression(object):
             self.pred_loss = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=tf.stop_gradient(self.tf_labels_in))
             # self.pred_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.tf_labels_in)
         self.mean_pred_loss = tf.reduce_mean(input_tensor=self.pred_loss)
-        self.loss = self.mean_pred_loss + self.reg_lambda * self.regularization_loss
+        self.loss = self.mean_pred_loss + self.reg_lambda * self.reg_loss
         self.loss = self.append_loss_factors(self.loss)
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.lr)
-
+        # optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=self.lr)
+        # optimizer = tf.compat.v1.train.MomentumOptimizer(learning_rate=self.lr, momentum=0.9)
         # self.e2e_train_op = optimizer.minimize(self.loss)
         self.computed_gradients = optimizer.compute_gradients(self.loss)
         self.e2e_train_op = optimizer.apply_gradients(self.computed_gradients)
@@ -148,11 +149,6 @@ class LogisticRegression(object):
         if self.loss_factor_dict is None or self.loss_factor_weight_dict is None:
             return loss
 
-        # print("append loss factors:")
-        # for loss_fac, loss_fac_weight in zip(self.loss_factor_dict, self.loss_factor_weight_dict):
-        #     print("append loss factor:", loss_fac_weight, loss_fac)
-        #     loss = loss + loss_fac_weight * loss_fac
-        #     print("appended loss")
         print("[DEBUG] append loss factors:")
         for key, loss_fac in self.loss_factor_dict.items():
             loss_fac_weight = self.loss_factor_weight_dict[key]
