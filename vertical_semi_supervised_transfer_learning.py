@@ -1,4 +1,5 @@
 import csv
+import json
 import os
 import time
 
@@ -43,11 +44,11 @@ class VerticalFederatedTransferLearning(object):
     def save_model(self, file_path):
         print("[INFO] TODO: save model")
 
-    def save_info(self, file_path, log_info):
-        field_names = list(log_info.keys())
-        with open(file_path, "a") as logfile:
+    def save_info(self, file_path, eval_info):
+        field_names = list(eval_info.keys())
+        with open(file_path + ".csv", "a") as logfile:
             logger = csv.DictWriter(logfile, fieldnames=field_names)
-            logger.writerow(log_info)
+            logger.writerow(eval_info)
 
     @staticmethod
     def _create_transform_matrix(in_dim, out_dim):
@@ -84,8 +85,14 @@ class VerticalFederatedTransferLearning(object):
         self.Uh_overlap_comm_temp = Uh_overlap_comm
 
         sharpen_temp = self.model_param.sharpen_temperature
+        label_prob_sharpen_temperature = self.model_param.label_prob_sharpen_temperature
         fed_label_prob_threshold = self.model_param.fed_label_prob_threshold
-        host_label_prob_threhold = self.model_param.host_label_prob_threshold
+        host_label_prob_threshold = self.model_param.host_label_prob_threshold
+
+        print(f"[INFO] sharpen temperature:{sharpen_temp}")
+        print(f"[INFO] label_prob_sharpen_temperature:{label_prob_sharpen_temperature}")
+        print(f"[INFO] fed_label_prob_threshold:{fed_label_prob_threshold}")
+        print(f"[INFO] host_label_prob_threshold:{host_label_prob_threshold}")
 
         W_hg = None
         Y_overlap = self.vftl_guest.get_Y_overlap()
@@ -134,13 +141,15 @@ class VerticalFederatedTransferLearning(object):
                                                axis=1)
 
         # estimate labels for federated feature representations with guest's representations estimated.
-        nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
+        self.nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
 
         # estimate labels for estimated feature representations of missing samples of guest
-        nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
+        self.nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
 
-        self.nl_ested_lbls_for_fed_ested_guest_reprs = sharpen(nl_ested_lbls_for_fed_ested_guest_reprs, temperature=0.3)
-        self.nl_ested_lbls_for_lr_ested_guest_reprs = sharpen(nl_ested_lbls_for_lr_ested_guest_reprs, temperature=0.3)
+        self.nl_ested_lbls_for_fed_ested_guest_reprs = sharpen(self.nl_ested_lbls_for_fed_ested_guest_reprs,
+                                                               temperature=label_prob_sharpen_temperature)
+        self.nl_ested_lbls_for_lr_ested_guest_reprs = sharpen(self.nl_ested_lbls_for_lr_ested_guest_reprs,
+                                                              temperature=label_prob_sharpen_temperature)
 
         print("fed_nl_w_guest_ested_reprs:", fed_nl_w_guest_ested_reprs)
         print("nl_ested_lbls_for_att_ested_guest_reprs:", self.nl_ested_lbls_for_att_ested_guest_reprs)
@@ -169,7 +178,7 @@ class VerticalFederatedTransferLearning(object):
             reprs_w_candidate_labels=self.fed_nl_w_ested_guest_reprs_n_candidate_labels,
             n_class=self.n_class,
             fed_label_upper_bound=fed_label_prob_threshold,
-            host_label_upper_bound=host_label_prob_threhold)
+            host_label_upper_bound=host_label_prob_threshold)
 
         self.num_selected_samples = selected_reprs_w_lbls.size()
         has_selected_samples = selected_reprs_w_lbls.size() > 0
@@ -194,12 +203,12 @@ class VerticalFederatedTransferLearning(object):
         self.training_fed_reprs_shape = tf.shape(input=train_fed_reprs)
 
         train_guest_ol_reprs = tf.concat(Ug_overlap, axis=1)
-        train_guest_ul_reprs = tf.concat(Ug_non_overlap, axis=1)
-        train_guest_reprs = tf.concat((train_guest_ol_reprs, train_guest_ul_reprs), axis=0)
+        train_guest_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+        train_guest_reprs = tf.concat((train_guest_ol_reprs, train_guest_nl_reprs), axis=0)
         train_guest_Y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
 
         print("train_guest_ol_reprs:", train_guest_ol_reprs)
-        print("train_guest_ul_reprs:", train_guest_ul_reprs)
+        print("train_guest_nl_reprs:", train_guest_nl_reprs)
         print("train_guest_reprs:", train_guest_reprs)
         print("train_guest_Y:", train_guest_Y)
 
@@ -429,6 +438,7 @@ class VerticalFederatedTransferLearning(object):
         res = precision_recall_fscore_support(y_test_1d, y_hat_1d, average='weighted')
         all_fscore = self.f_score(res[0], res[1])
         acc = accuracy_score(y_test_1d, y_hat_1d)
+        print("y_prob_two_sides:", y_prob_two_sides)
         auc = roc_auc_score(y_test, y_prob_two_sides)
 
         print("[INFO] all_res:", res)
@@ -863,7 +873,9 @@ class VerticalFederatedTransferLearning(object):
             # if fed_lbl_idx == lr_lbl_idx and lr_lbl_prob > 0.6 and fed_lbl_prob > 0.6:
             if fed_lbl_idx == lr_lbl_idx and present_count < 20:
                 # if present_count < 20:
-                print("att         lr       fed")
+                # print("lr_lbl:", lr_lbl)
+                # print("fed_lbl:", fed_lbl)
+                print("att         lr         fed")
                 print("[{0}]:{1}, [{2}]:{3}, [{4}]:{5}".format(att_lbl_idx, att_lbl_prob,
                                                                lr_lbl_idx, lr_lbl_prob,
                                                                fed_lbl_idx, fed_lbl_prob))
@@ -967,10 +979,13 @@ class VerticalFederatedTransferLearning(object):
         nol_batch_size = self.model_param.non_overlap_sample_batch_size
         ol_batch_size = self.model_param.overlap_sample_batch_size
         training_info_file_name = self.model_param.training_info_file_name
+        valid_iteration_interval = self.model_param.valid_iteration_interval
+
+        with open(training_info_file_name + '.json', 'w') as outfile:
+            json.dump(self.model_param.get_parameters(), outfile)
 
         nol_guest_batch_size = nol_batch_size
         nol_host_batch_size = nol_batch_size
-        # ol_batch_size = nol_guest_batch_size
 
         print("[INFO] using_block_idx:", using_block_idx)
         print("[INFO] ol_batch_size:", ol_batch_size)
@@ -996,7 +1011,7 @@ class VerticalFederatedTransferLearning(object):
         host_block_indices = None
         estimation_block_size = None
 
-        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", epoch_patience=3, file_path=training_info_file_name)
+        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", epoch_patience=2, file_path=training_info_file_name)
         early_stopping.set_model(self)
         early_stopping.on_train_begin()
 
@@ -1128,22 +1143,22 @@ class VerticalFederatedTransferLearning(object):
                         print("[DEBUG] ested_guest_block_idx:", ested_guest_block_idx)
                         print("[DEBUG] ested_host_block_idx:", ested_host_block_idx)
                     else:
-                        print("# Using block indices")
+                        print("[DEBUG] # Using block indices")
                         estimation_block_size = self.model_param.all_sample_block_size
                         guest_block_indices = np.random.choice(guest_all_training_size, estimation_block_size)
                         host_block_indices = np.random.choice(host_all_training_size, estimation_block_size)
-                        print("guest_block_indices:", len(guest_block_indices))
-                        print("host_block_indices:", len(host_block_indices))
+                        print("[DEBUG] guest_block_indices:", len(guest_block_indices))
+                        print("[DEBUG] host_block_indices:", len(host_block_indices))
 
                     if debug:
-                        print("ol_start:ol_end ", ol_start, ol_end)
-                        print("nol_guest_start:nol_guest_end ", nol_guest_start, nol_guest_end)
-                        print("nol_host_start:nol_host_end ", nol_host_start, nol_host_end)
+                        print("[DEBUG] ol_start:ol_end ", ol_start, ol_end)
+                        print("[DEBUG] nol_guest_start:nol_guest_end ", nol_guest_start, nol_guest_end)
+                        print("[DEBUG] nol_host_start:nol_host_end ", nol_host_start, nol_host_end)
                         if guest_block_indices is not None:
-                            print("num guest_block_indices:", len(guest_block_indices))
-                            print("num host_block_indices:", len(host_block_indices))
+                            print("[DEBUG] num guest_block_indices:", len(guest_block_indices))
+                            print("[DEBUG] num host_block_indices:", len(host_block_indices))
 
-                    print("guest_block_indices: ", guest_block_indices)
+                    print("[DEBUG] guest_block_indices: ", guest_block_indices)
 
                     loss = self._train(sess=sess,
                                        overlap_batch_range=(ol_start, ol_end),
@@ -1170,81 +1185,85 @@ class VerticalFederatedTransferLearning(object):
                     nol_guest_batch_idx = nol_guest_batch_idx + 1
                     nol_host_batch_idx = nol_host_batch_idx + 1
 
-                    #
-                    # two sides validation
-                    #
-                    all_acc, all_auc, all_fscore = self.two_side_predict(sess, debug=debug)
-                    all_acc_list.append(all_acc)
-                    all_auc_list.append(all_auc)
-                    all_fscore_list.append(all_fscore)
+                    if (iteration + 1) % valid_iteration_interval == 0:
 
-                    #
-                    # guest side validation
-                    #
-                    fed_res, guest_res = self.guest_side_predict(sess,
-                                                                 host_all_training_size,
-                                                                 estimation_block_size,
-                                                                 estimation_block_num=guest_ested_block_num,
-                                                                 debug=debug)
-                    g_fed_fscore_list, g_fed_acc_list, g_fed_auc_list = fed_res
-                    g_only_fscore_list, g_only_acc_list, g_only_auc_list = guest_res
+                        #
+                        # two sides validation
+                        #
+                        all_acc, all_auc, all_fscore = self.two_side_predict(sess, debug=debug)
+                        all_acc_list.append(all_acc)
+                        all_auc_list.append(all_auc)
+                        all_fscore_list.append(all_fscore)
 
-                    g_fed_fscore_mean = np.mean(g_fed_fscore_list)
-                    g_fed_acc_mean = np.mean(g_fed_acc_list)
-                    g_fed_auc_mean = np.mean(g_fed_auc_list)
+                        #
+                        # guest side validation
+                        #
+                        fed_res, guest_res = self.guest_side_predict(sess,
+                                                                     host_all_training_size,
+                                                                     estimation_block_size,
+                                                                     estimation_block_num=guest_ested_block_num,
+                                                                     debug=debug)
+                        g_fed_fscore_list, g_fed_acc_list, g_fed_auc_list = fed_res
+                        g_only_fscore_list, g_only_acc_list, g_only_auc_list = guest_res
 
-                    g_only_fscore_mean = np.mean(g_only_fscore_list)
-                    g_only_acc_mean = np.mean(g_only_acc_list)
-                    g_only_auc_mean = np.mean(g_only_auc_list)
+                        g_fed_fscore_mean = np.mean(g_fed_fscore_list)
+                        g_fed_acc_mean = np.mean(g_fed_acc_list)
+                        g_fed_auc_mean = np.mean(g_fed_auc_list)
 
-                    if debug:
-                        print("%% g_fed_fscore_list:", g_fed_fscore_list, g_fed_fscore_mean)
-                        print("%% g_fed_acc_list:", g_fed_acc_list, g_fed_acc_mean)
-                        print("%% g_fed_auc_list:", g_fed_auc_list, g_fed_auc_mean)
+                        g_only_fscore_mean = np.mean(g_only_fscore_list)
+                        g_only_acc_mean = np.mean(g_only_acc_list)
+                        g_only_auc_mean = np.mean(g_only_auc_list)
 
-                    #
-                    # host side validation
-                    #
-                    h_fscore_list, h_acc_list, h_auc_list = self.host_side_predict(sess,
-                                                                                   guest_all_training_size,
-                                                                                   estimation_block_size,
-                                                                                   estimation_block_num=host_ested_block_num,
-                                                                                   debug=debug)
-                    h_fscore_mean = np.mean(h_fscore_list)
-                    h_acc_mean = np.mean(h_acc_list)
-                    h_auc_mean = np.mean(h_auc_list)
+                        if debug:
+                            print("%% g_fed_fscore_list:", g_fed_fscore_list, g_fed_fscore_mean)
+                            print("%% g_fed_acc_list:", g_fed_acc_list, g_fed_acc_mean)
+                            print("%% g_fed_auc_list:", g_fed_auc_list, g_fed_auc_mean)
 
-                    if debug:
-                        print("%% h_fscore_list:", h_fscore_list, h_fscore_mean)
-                        print("%% h_acc_list:", h_acc_list, h_acc_mean)
-                        print("%% h_auc_list:", h_auc_list, h_auc_mean)
+                        #
+                        # host side validation
+                        #
+                        h_fscore_list, h_acc_list, h_auc_list = self.host_side_predict(sess,
+                                                                                       guest_all_training_size,
+                                                                                       estimation_block_size,
+                                                                                       estimation_block_num=host_ested_block_num,
+                                                                                       debug=debug)
+                        h_fscore_mean = np.mean(h_fscore_list)
+                        h_acc_mean = np.mean(h_acc_list)
+                        h_auc_mean = np.mean(h_auc_list)
 
-                    print("=" * 100)
-                    print("[INFO] => fscore: all, fed_guest, only_guest, host", all_fscore, g_fed_fscore_mean,
-                          g_only_fscore_mean, h_fscore_mean)
-                    print("[INFO] => acc: all, fed_guest, only_guest, host", all_acc, g_fed_acc_mean, g_only_acc_mean,
-                          h_acc_mean)
-                    print("[INFO] => auc: all, fed_guest, only_guest, host", all_auc, g_fed_auc_mean, g_only_auc_mean,
-                          h_auc_mean)
-                    print("=" * 100)
+                        if debug:
+                            print("%% h_fscore_list:", h_fscore_list, h_fscore_mean)
+                            print("%% h_acc_list:", h_acc_list, h_acc_mean)
+                            print("%% h_auc_list:", h_auc_list, h_auc_mean)
 
-                    # ave_fscore = (all_fscore + g_fed_fscore_mean + h_fscore_mean) / 3
-                    ave_fscore = 3 / (1 / all_fscore + 1 / g_fed_fscore_mean + 1 / h_fscore_mean)
-                    ave_accuracy = 3 / (1 / all_acc + 1 / g_fed_acc_mean + 1 / h_acc_mean)
-                    ave_accuracy_2 = 2 / (1 / all_acc + 1 / g_fed_acc_mean)
-                    print("[INFO] harmonic mean of fscore:", ave_fscore)
-                    print("[INFO] harmonic mean of accuracy:", ave_accuracy)
-                    print("[INFO] harmonic mean of accuracy_2:", ave_accuracy_2)
-                    log = {"fscore": all_acc,
-                           "all_fscore": all_fscore, "g_fscore": g_fed_fscore_mean, "h_fscore": h_fscore_mean,
-                           "all_acc": all_acc, "g_acc": g_fed_acc_mean, "h_acc": h_acc_mean,
-                           "all_auc": all_auc, "g_auc": g_fed_auc_mean, "h_auc": h_auc_mean}
+                        print("=" * 100)
+                        print(f"epoch:{i}, iteration:{iteration}")
+                        print("[INFO] => fscore: all, fed_guest, only_guest, host", all_fscore, g_fed_fscore_mean,
+                              g_only_fscore_mean, h_fscore_mean)
+                        print("[INFO] => acc: all, fed_guest, only_guest, host", all_acc, g_fed_acc_mean, g_only_acc_mean,
+                              h_acc_mean)
+                        print("[INFO] => auc: all, fed_guest, only_guest, host", all_auc, g_fed_auc_mean, g_only_auc_mean,
+                              h_auc_mean)
+                        print("=" * 100)
 
-                    early_stopping.on_iteration_end(epoch=i, batch=nol_guest_batch_idx, log=log)
+                        # ave_fscore = (all_fscore + g_fed_fscore_mean + h_fscore_mean) / 3
+                        # ave_fscore = 3 / (1 / all_fscore + 1 / g_fed_fscore_mean + 1 / h_fscore_mean)
+                        # ave_accuracy = 3 / (1 / all_acc + 1 / g_fed_acc_mean + 1 / h_acc_mean)
+                        # ave_accuracy_2 = 2 / (1 / all_acc + 1 / g_fed_acc_mean)
+                        # print("[INFO] harmonic mean of fscore:", ave_fscore)
+                        # print("[INFO] harmonic mean of accuracy:", ave_accuracy)
+                        # print("[INFO] harmonic mean of accuracy_2:", ave_accuracy_2)
+                        log = {"fscore": all_acc,
+                               "all_fscore": all_fscore, "g_fscore": g_fed_fscore_mean, "h_fscore": h_fscore_mean,
+                               "all_acc": all_acc, "g_acc": g_fed_acc_mean, "h_acc": h_acc_mean,
+                               "all_auc": all_auc, "g_auc": g_fed_auc_mean, "h_auc": h_auc_mean}
+
+                        early_stopping.on_iteration_end(epoch=i, batch=nol_guest_batch_idx, log=log)
+                        if self.stop_training is True:
+                            break
+                        # end validation
+
                     iteration += 1
-                    if self.stop_training is True:
-                        break
-
                 if self.stop_training is True:
                     break
 

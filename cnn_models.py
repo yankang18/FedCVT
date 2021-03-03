@@ -291,10 +291,11 @@ class ClientMiniVGG(CNNFeatureExtractor):
 
 class ClientVGG8(CNNFeatureExtractor):
 
-    def __init__(self, an_id):
+    def __init__(self, an_id, dense_units=48):
         super(ClientVGG8, self).__init__(an_id)
         print("[INFO] {0} is using ClientVGG8".format(an_id))
         self.activation = tf.nn.leaky_relu
+        self.dense_units = dense_units
 
     def set_filters(self):
         # first CONV block
@@ -351,7 +352,7 @@ class ClientVGG8(CNNFeatureExtractor):
         # Dense layer
         self.flat = tf.compat.v1.layers.Flatten()
         # self.dense1 = tf.layers.Dense(units=256, activation=self.activation)
-        self.repr = tf.compat.v1.layers.Dense(units=48, activation=self.activation)
+        self.repr = tf.compat.v1.layers.Dense(units=self.dense_units, activation=self.activation)
         self.bn7 = tf.compat.v1.layers.BatchNormalization()
 
     def forward_hidden(self, x):
@@ -367,7 +368,7 @@ class ClientVGG8(CNNFeatureExtractor):
         x = self.activation(x)
         x = self.bn2(x)
         x = self.mp2(x)
-        x = tf.compat.v1.layers.dropout(x, rate=0.25, training=is_training)
+        # x = tf.compat.v1.layers.dropout(x, rate=0.25, training=is_training)
 
         # second CONV block
         x = self.conv3(x)
@@ -377,7 +378,7 @@ class ClientVGG8(CNNFeatureExtractor):
         x = self.activation(x)
         x = self.bn4(x)
         x = self.mp4(x)
-        x = tf.compat.v1.layers.dropout(x, rate=0.25, training=is_training)
+        # x = tf.compat.v1.layers.dropout(x, rate=0.25, training=is_training)
 
         # third CONV block
         x = self.conv5(x)

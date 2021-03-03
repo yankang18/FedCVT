@@ -195,10 +195,10 @@ class Autoencoder(FeatureExtractor):
     def _do_forward_encode(self, X, layer_index):
         We = self.enc_layer_vars_map["We_" + str(layer_index)]
         be = self.enc_layer_vars_map["be_" + str(layer_index)]
-        return tf.matmul(X, We) + be
-        # return tf.nn.tanh(tf.matmul(X, We) + be)
+        # return tf.matmul(X, We) + be
+        return tf.nn.tanh(tf.matmul(X, We) + be)
         # return tf.nn.leaky_relu(tf.matmul(X, We) + be)
-        # return tf.nn.sigmoid(tf.matmul(X, We) + be)
+        # return tf.nn.sigmoid(tf.matmul(X, We))
 
     def _forward_logits(self, X):
         Z = self._forward_hidden(X)
@@ -213,6 +213,7 @@ class Autoencoder(FeatureExtractor):
     def _do_forward_decode(self, X, layer_index):
         Wd = self.dec_layer_vars_initializer_map["Wd_" + str(layer_index)]
         bd = self.dec_layer_vars_initializer_map["bd_" + str(layer_index)]
+        # return tf.matmul(X, Wd) + bd
         return tf.nn.tanh(tf.matmul(X, Wd) + bd)
         # return tf.nn.leaky_relu(tf.matmul(X, Wd) + bd)
 

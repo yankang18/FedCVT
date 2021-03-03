@@ -87,16 +87,13 @@ def get_labeled_data(data_dir, selected_label, n_samples, dtype="Train"):
     print(f"[INFO] text feature ({file}) with ({len(all_text_features.columns)}) dimension.")
     selected_text_features = all_text_features.loc[selected_labels.index]
 
-    # scaler = StandardScaler()
-    # selected_text_features = scaler.fit_transform(selected_text_features)
-
     print(f"[INFO] image data shape:{selected_image_features.shape}, text data shape:{selected_text_features.shape}")
 
     if n_samples is None:
         return selected_image_features.values[:], selected_text_features.values[:], selected_labels.values[:]
-    return selected_image_features.values[:n_samples], selected_text_features.values[
-                                                       :n_samples], selected_labels.values[
-                                                                    :n_samples]
+    return selected_image_features.values[:n_samples], \
+           selected_text_features.values[:n_samples], \
+           selected_labels.values[:n_samples]
 
 
 def get_image_and_text_data(data_dir, selected, n_samples=2000, dtype="Train"):

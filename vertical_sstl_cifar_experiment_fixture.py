@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     overlap_sample_batch_size = 128
     non_overlap_sample_batch_size = 128
-
+    learning_rate = 0.001
     # loss_weight_list = [1.0, 0.01, 0.01, 500, 0.1, 0.1, 0.1]
     # loss_weight_list = [100, 0.1, 0.1, 1000, 0.1, 0.1, 0.1]
     # loss_weight_list = [0.01, 0.001, 0.001, 100, 0.1, 0.1, 0.1]
@@ -151,7 +151,7 @@ if __name__ == "__main__":
                                           fed_hidden_dim=hidden_dim,
                                           guest_hidden_dim=None,
                                           using_block_idx=True,
-                                          learning_rate=0.001,
+                                          learning_rate=learning_rate,
                                           fed_reg_lambda=0.001,
                                           guest_reg_lambda=0.0,
                                           loss_weight_dict=loss_weight_dict,
@@ -165,8 +165,8 @@ if __name__ == "__main__":
                                           all_sample_block_size=5000,
                                           is_hetero_repr=False,
                                           sharpen_temperature=0.1,
-                                          fed_label_prob_threshold=0.7,
-                                          host_label_prob_threshold=0.7,
+                                          fed_label_prob_threshold=0.6,
+                                          host_label_prob_threshold=0.3,
                                           training_info_file_name=file_name)
 
     # set up and train model
@@ -176,7 +176,6 @@ if __name__ == "__main__":
     tf.compat.v1.reset_default_graph()
     tf.compat.v1.disable_eager_execution()
 
-    # input_shape = (28, 14, 1)
     input_shape = (32, 16, 3)
     guest = guest_constructor.build(data_folder=dataset_folder_path,
                                     input_shape=input_shape)

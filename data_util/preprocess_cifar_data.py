@@ -256,6 +256,7 @@ def preprocess_and_save_data_v2(from_dataset_folder_path,
                                 guest_estimation_block_size,
                                 host_nonoverlap_block_size,
                                 host_estimation_block_size):
+
     train_features, train_labels, val_features, val_labels = load_data(dataset_folder_path=from_dataset_folder_path)
 
     print("[INFO] from_dataset_folder_path: {0}".format(from_dataset_folder_path))
@@ -283,6 +284,10 @@ def preprocess_and_save_data_v2(from_dataset_folder_path,
 
     print("[INFO] ===> prepare guest and host data")
 
+    #
+    # obtain boundary indices for cutting off image
+    #
+
     shape_dim = len(train_features.shape)
     feat_idx = shape_dim - 2
     feature_dim = train_features.shape[feat_idx]
@@ -298,14 +303,16 @@ def preprocess_and_save_data_v2(from_dataset_folder_path,
     print("[INFO] guest features start from {0} to {1}".format(guest_feature_start_idx, guest_feature_end_idx))
     print("[INFO] host features start from {0} to {1}".format(host_feature_start_idx, host_feature_end_idx))
 
+    #
     # prepare validation data for guest and host
-    # guest_val_features = val_features[:, :, :half_feature_dim, :]
-    # host_val_features = val_features[:, :, half_feature_dim:, :]
+    #
     guest_val_features = val_features[:, :, guest_feature_start_idx:guest_feature_end_idx]
     host_val_features = val_features[:, :, host_feature_start_idx:host_feature_end_idx]
     num_val_samples = len(guest_val_features)
 
+    #
     # prepare overlapping data for guest and host
+    #
     print("[INFO] number of total train samples:", len(train_features))
     print("[INFO] number of overlapping samples:", num_overlap)
     print("[INFO] overlapping train sample split: from {0} to {1}".format(0, num_overlap))
@@ -313,7 +320,9 @@ def preprocess_and_save_data_v2(from_dataset_folder_path,
     overlap_guest_train_features = overlap_train_features[:, :, guest_feature_start_idx:guest_feature_end_idx]
     overlap_host_train_features = overlap_train_features[:, :, host_feature_start_idx:host_feature_end_idx]
 
+    #
     # prepare non-overlapping data for guest and host
+    #
     num_nonoverlap = len(train_features) - num_overlap
     half_num_nonoverlap = int(num_nonoverlap / 2)
 
@@ -321,10 +330,6 @@ def preprocess_and_save_data_v2(from_dataset_folder_path,
     print("[INFO] number of half non-overlapping samples:", half_num_nonoverlap)
 
     # split data into guest and host
-    # nonoverlap_guest_train_features = train_features[num_overlap:num_overlap + half_num_nonoverlap, :,
-    #                                   :half_feature_dim, :]
-    # nonoverlap_host_train_features = train_features[num_overlap + half_num_nonoverlap:, :, half_feature_dim:, :]
-
     nl_guest_train_samples_from_idx = num_overlap
     nl_guest_train_samples_to_idx = num_overlap + half_num_nonoverlap
     print("[INFO] guest non-overlapping train sample split: from {0} to {1}".format(nl_guest_train_samples_from_idx,

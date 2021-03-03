@@ -12,6 +12,41 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 tag_INFO = "[INFO]"
 
 
+class FileDataLoader(object):
+
+    def __init__(self, batch_size, data_folder, file_name='preprocess_batch_', half_image_features=False):
+        self.batch_size = batch_size
+        self.data_folder = data_folder
+        self.file_name = file_name
+        self.half_image_features = half_image_features
+
+    def load_minibatch(self, batch_id):
+        """
+        Load the Preprocessed Training data and return them in batches of <batch_size> or less
+        """
+
+        features, labels = load_training_batch(self.data_folder, batch_id, file_name=self.file_name)
+
+        if half_image_features:
+            half_feature_dim = int(features.shape[2] / 2)
+            features = features[:, :, :half_feature_dim]
+        print("loaded features with shape {0}".format(features.shape))
+
+        # Return the training data in batches of size <batch_size> or less
+        return batch_features_labels(features, labels, batch_size)
+
+
+class SimpleDataLoader(object):
+
+    def __init__(self, features, labels, batch_size):
+        self.features = features
+        self.labels = labels
+        self.batch_size = batch_size
+
+    def load_minibatch(self):
+        return batch_features_labels(self.features, self.labels, batch_size)
+
+
 def batch_features_labels(features, labels, batch_size):
     """
     Split features and labels into batches
@@ -19,29 +54,6 @@ def batch_features_labels(features, labels, batch_size):
     for start in range(0, len(features), batch_size):
         end = min(start + batch_size, len(features))
         yield features[start:end], labels[start:end]
-
-
-def load_preprocess_training_minibatch(data_folder,
-                                       batch_id,
-                                       batch_size,
-                                       file_name='preprocess_batch_',
-                                       complete_image=True):
-    """
-    Load the Preprocessed Training data and return them in batches of <batch_size> or less
-    """
-    # filename = data_folder + 'preprocess_batch_' + str(batch_id) + '.p'
-    # features, labels = pickle.load(open(filename, mode='rb'))
-
-    features, labels = load_training_batch(data_folder, batch_id, file_name=file_name)
-
-    if not complete_image:
-        half_feature_dim = int(features.shape[2] / 2)
-        features = features[:, :, :half_feature_dim]
-        # features = features[:, :, half_feature_dim:]
-    print("loaded features with shape {0}".format(features.shape))
-
-    # Return the training data in batches of size <batch_size> or less
-    return batch_features_labels(features, labels, batch_size)
 
 
 def load_training_batch(data_folder, batch_id, file_name):
@@ -84,7 +96,7 @@ def print_testing_stats(sess, extractor, test_features, test_labels):
 
 
 def run_experiment(meta_info):
-    complete_image = meta_info["complete_image"]
+    half_image_features = meta_info["half_image_features"]
     image_shape = meta_info["image_shape"]
 
     n_batches = meta_info["n_batches"]
@@ -109,7 +121,7 @@ def run_experiment(meta_info):
         open(validation_dataset_folder_path + preprocess_validation_file_name, mode='rb'))
     print("{0} original validation features shape {1}:".format(tag_INFO, val_features.shape))
 
-    if not complete_image:
+    if half_image_features:
         half_feature_dim = int(val_features.shape[2] / 2)
         val_features = val_features[:, :, :half_feature_dim]
         # val_features = val_features[:, :, half_feature_dim:]
@@ -128,7 +140,7 @@ def run_experiment(meta_info):
     # Remove previous weights, bias, inputs, etc..
     tf.compat.v1.reset_default_graph()
 
-    if complete_image:
+    if not half_image_features:
         # extractor = BenchmarkFullImageCNNFeatureExtractor("cnn_1")
         extractor = ClientVGG8("cnn_1")
         extractor.build(input_shape=image_shape, learning_rate=learning_rate)
@@ -140,21 +152,19 @@ def run_experiment(meta_info):
     gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0")
     best_test_acc = 0
     best_valid_acc = 0
-    # init = tf.global_variables_initializer()
     with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options)) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
         # Training cycle
         start_time = time.time()
         for epoch in range(epochs):
             # Loop over all blocks
-            # for batch_i in range(n_batches):
             for batch_i in range(n_batches):
                 min_batch_index = 0
                 # Loop over all mini-batches
-                for batch_features, batch_labels in load_preprocess_training_minibatch(training_dataset_folder_path,
-                                                                                       batch_i, batch_size,
-                                                                                       file_name=preprocess_training_file_name,
-                                                                                       complete_image=complete_image):
+                for batch_features, batch_labels in load_minibatch(training_dataset_folder_path,
+                                                                   batch_i, batch_size,
+                                                                   file_name=preprocess_training_file_name,
+                                                                   half_image_features=half_image_features):
                     # train_neural_network(sess, optimizer, keep_probability, batch_features, batch_labels)
                     sess.run(extractor.optimizer,
                              feed_dict={
@@ -207,8 +217,8 @@ if __name__ == "__main__":
     # print("args:", args)
     # whether using the whole image
     # complete_image = args.complete_image
-    complete_image = False
-    print("{0} complete image: {1} ".format(tag_INFO, complete_image))
+    half_image_features = True
+    print("{0} half image features: {1} ".format(tag_INFO, half_image_features))
 
     # If using half image, whether just using overlapping training samples
     is_half_image_test_using_only_overlapping_samples = True
@@ -242,7 +252,7 @@ if __name__ == "__main__":
             training_dataset_folder_path = validation_dataset_folder_path
             preprocess_training_file_name = 'preprocess_batch_'
 
-            if complete_image:
+            if not half_image_features:
                 print("{0} Run benchmark test for complete image:".format(tag_INFO))
                 # image_shape = (28, 28, 1)
                 image_shape = (32, 32, 3)
@@ -262,7 +272,7 @@ if __name__ == "__main__":
             save_model_path = training_dataset_folder_path + 'image_classification'
 
             training_meta_info = dict()
-            training_meta_info["complete_image"] = complete_image
+            training_meta_info["half_image_features"] = half_image_features
             training_meta_info["image_shape"] = image_shape
             training_meta_info["n_batches"] = n_batches
             training_meta_info["epochs"] = epochs
