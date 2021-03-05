@@ -3,7 +3,7 @@ import time
 
 import tensorflow as tf
 
-from cnn_models import ClientVGG8
+from models.cnn_models import ClientVGG8
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
 from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader

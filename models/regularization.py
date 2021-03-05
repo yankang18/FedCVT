@@ -63,12 +63,14 @@ class EarlyStoppingCheckPoint(object):
                 self.stopped_epoch = epoch
                 self.stopped_batch = batch
                 self.model.stop_training = True
+                print(f"[INFO] early stopped with max wait epoch:{wait_epoch}")
 
             self.wait_iter += 1
             if self.wait_iter >= self.iter_patience:
                 self.stopped_epoch = epoch
                 self.stopped_batch = batch
                 self.model.stop_training = True
+                print(f"[INFO] early stopped with max wait iteration:{self.wait_iter}")
 
             print("[INFO] {0} is not the best {1}, which is ***{2}".format(current, self.monitor, self.best))
             print("[INFO] current best info:", self.best_log)

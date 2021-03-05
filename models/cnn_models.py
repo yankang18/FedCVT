@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from autoencoder import FeatureExtractor
+from models.autoencoder import FeatureExtractor
 
 
 class CNNFeatureExtractor(FeatureExtractor):
@@ -11,6 +11,7 @@ class CNNFeatureExtractor(FeatureExtractor):
         self._sess = None
         self._input_shape = None
         self.learning_rate = None
+        self._num_classes = None
 
     def set_session(self, sess):
         self._sess = sess
@@ -18,9 +19,10 @@ class CNNFeatureExtractor(FeatureExtractor):
     def get_session(self):
         return self._sess
 
-    def build(self, input_shape, learning_rate=0.01):
+    def build(self, input_shape, num_classes=10, learning_rate=0.01):
         self.learning_rate = learning_rate
         self._input_shape = input_shape
+        self._num_classes = num_classes
         self._add_input_placeholder()
         self.set_filters()
         self._add_forward_ops()
@@ -30,25 +32,30 @@ class CNNFeatureExtractor(FeatureExtractor):
         input_dim = len(self._input_shape)
         print("input dim : {0}".format(input_dim))
         if input_dim == 3:
-            self.X_all_in = tf.compat.v1.placeholder(dtype=tf.float32, shape=(None,
+            self.X_all_in = tf.compat.v1.placeholder(dtype=tf.float32,
+                                                     shape=(None,
+                                                            self._input_shape[0],
+                                                            self._input_shape[1],
+                                                            self._input_shape[2]),
+                                                     name="X_input_all")
+            self.X_overlap_in = tf.compat.v1.placeholder(dtype=tf.float32,
+                                                         shape=(None,
+                                                                self._input_shape[0],
+                                                                self._input_shape[1],
+                                                                self._input_shape[2]),
+                                                         name="X_input_overlap")
+            self.X_non_overlap_in = tf.compat.v1.placeholder(dtype=tf.float32,
+                                                             shape=(None,
                                                                     self._input_shape[0],
                                                                     self._input_shape[1],
-                                                                    self._input_shape[2]), name="X_input_all")
-            self.X_overlap_in = tf.compat.v1.placeholder(dtype=tf.float32, shape=(None,
-                                                                        self._input_shape[0],
-                                                                        self._input_shape[1],
-                                                                        self._input_shape[2]), name="X_input_overlap")
-            self.X_non_overlap_in = tf.compat.v1.placeholder(dtype=tf.float32,
-                                                   shape=(None,
-                                                          self._input_shape[0],
-                                                          self._input_shape[1],
-                                                          self._input_shape[2]), name="X_input_non_overlap")
+                                                                    self._input_shape[2]),
+                                                             name="X_input_non_overlap")
         else:
             raise Exception("input dim mush be 3, but is {0}".format(input_dim))
 
         self.keep_prob = tf.compat.v1.placeholder(tf.float32, name='keep_prob')
         self.is_train = tf.compat.v1.placeholder(tf.bool, name='is_train')
-        self.y = tf.compat.v1.placeholder(tf.float32, shape=(None, 10), name='output_y')
+        self.y = tf.compat.v1.placeholder(tf.float32, shape=(None, self._num_classes), name='output_y')
 
     def get_all_samples(self):
         return self.X_all_in
@@ -72,12 +79,13 @@ class CNNFeatureExtractor(FeatureExtractor):
 
     def _add_loss_op(self):
         representation = self.forward_hidden(self.X_all_in)
-        logits = tf.compat.v1.layers.dense(inputs=representation, units=10, activation=None)
+        logits = tf.compat.v1.layers.dense(inputs=representation, units=self._num_classes, activation=None)
         # Name logits Tensor, so that can be loaded from disk after training
         # model = tf.identity(logits, name='logits')
 
         # Loss and Optimizer
-        self.cost = tf.reduce_mean(input_tensor=tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.stop_gradient(self.y)))
+        self.cost = tf.reduce_mean(
+            input_tensor=tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.stop_gradient(self.y)))
         self.optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
 
         # Accuracy
@@ -233,23 +241,23 @@ class ClientMiniVGG(CNNFeatureExtractor):
         # self.conv4_filter = tf.truncated_normal(shape=[3, 3, 64, 64], mean=0, stddev=0.1)
 
         self.conv1 = tf.compat.v1.layers.Conv2D(filters=32, kernel_size=(3, 3),
-                                      kernel_initializer="glorot_normal",
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer="glorot_normal",
+                                                strides=(1, 1), padding="same")
         self.bn1 = tf.compat.v1.layers.BatchNormalization()
 
         self.conv2 = tf.compat.v1.layers.Conv2D(filters=32, kernel_size=(3, 3),
-                                      kernel_initializer="glorot_normal",
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer="glorot_normal",
+                                                strides=(1, 1), padding="same")
         self.bn2 = tf.compat.v1.layers.BatchNormalization()
         self.mp2 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
 
         self.conv3 = tf.compat.v1.layers.Conv2D(filters=64, kernel_size=(3, 3),
-                                      kernel_initializer="glorot_normal",
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer="glorot_normal",
+                                                strides=(1, 1), padding="same")
         self.bn3 = tf.compat.v1.layers.BatchNormalization()
         self.conv4 = tf.compat.v1.layers.Conv2D(filters=64, kernel_size=(3, 3),
-                                      kernel_initializer="glorot_normal",
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer="glorot_normal",
+                                                strides=(1, 1), padding="same")
         self.bn4 = tf.compat.v1.layers.BatchNormalization()
         self.mp4 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
 
@@ -298,56 +306,59 @@ class ClientVGG8(CNNFeatureExtractor):
         self.dense_units = dense_units
 
     def set_filters(self):
+        initializer = "glorot_normal"
+        # initializer = tf.compat.v1.truncated_normal_initializer(stddev=0.08)
         # first CONV block
         self.conv1 = tf.compat.v1.layers.Conv2D(filters=32, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=initializer,
+                                                strides=(1, 1), padding="same")
         self.bn1 = tf.compat.v1.layers.BatchNormalization()
 
         self.conv2 = tf.compat.v1.layers.Conv2D(filters=32, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=initializer,
+                                                strides=(1, 1), padding="same")
         self.bn2 = tf.compat.v1.layers.BatchNormalization()
         self.mp2 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
 
         # second CONV block
         self.conv3 = tf.compat.v1.layers.Conv2D(filters=64, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=initializer,
+                                                strides=(1, 1), padding="same")
         self.bn3 = tf.compat.v1.layers.BatchNormalization()
         self.conv4 = tf.compat.v1.layers.Conv2D(filters=64, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=initializer,
+                                                strides=(1, 1), padding="same")
         self.bn4 = tf.compat.v1.layers.BatchNormalization()
         self.mp4 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
 
         # third CONV block
         self.conv5 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=initializer,
+                                                strides=(1, 1), padding="same")
         self.bn5 = tf.compat.v1.layers.BatchNormalization()
         self.conv6 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=initializer,
+                                                strides=(1, 1), padding="same")
 
-        self.conv6_5_5 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(5, 5),
-                                          kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                          strides=(1, 1), padding="same")
-
-        self.conv6_1_1 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(1, 1),
-                                          kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                          strides=(1, 1), padding="same")
+        # self.conv6_5_5 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(5, 5),
+        #                                             kernel_initializer=initializer,
+        #                                             strides=(1, 1), padding="same")
+        #
+        # self.conv6_1_1 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(1, 1),
+        #                                             kernel_initializer=initializer,
+        #                                             strides=(1, 1), padding="same")
 
         self.bn6 = tf.compat.v1.layers.BatchNormalization()
-        self.bn6_1_1 = tf.compat.v1.layers.BatchNormalization()
-        self.bn6_5_5 = tf.compat.v1.layers.BatchNormalization()
+        # self.bn6_1_1 = tf.compat.v1.layers.BatchNormalization()
+        # self.bn6_5_5 = tf.compat.v1.layers.BatchNormalization()
 
         self.mp6 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
         self.ave_pool = tf.compat.v1.layers.AveragePooling2D(pool_size=(5, 5), strides=(1, 1), padding="valid")
 
         self.conv7 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(1, 1),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
 
         # Dense layer
         self.flat = tf.compat.v1.layers.Flatten()
@@ -360,30 +371,29 @@ class ClientVGG8(CNNFeatureExtractor):
 
         is_training = self.get_is_train()
 
-        # first CONV block
         x = self.conv1(x)
         x = self.activation(x)
-        # x = self.bn1(x)
+        x = self.bn1(x)
+
         x = self.conv2(x)
         x = self.activation(x)
         x = self.bn2(x)
         x = self.mp2(x)
         # x = tf.compat.v1.layers.dropout(x, rate=0.25, training=is_training)
 
-        # second CONV block
         x = self.conv3(x)
         x = self.activation(x)
-        # x = self.bn3(x)
+        x = self.bn3(x)
+
         x = self.conv4(x)
         x = self.activation(x)
         x = self.bn4(x)
         x = self.mp4(x)
         # x = tf.compat.v1.layers.dropout(x, rate=0.25, training=is_training)
 
-        # third CONV block
         x = self.conv5(x)
         x = self.activation(x)
-        # x = self.bn5(x)
+        x = self.bn5(x)
 
         x = self.conv6(x)
         x = self.activation(x)
@@ -414,35 +424,41 @@ class ClientVGG8B(CNNFeatureExtractor):
     def set_filters(self):
         # first CONV block
         self.conv1 = tf.compat.v1.layers.Conv2D(filters=128, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
         self.bn1 = tf.compat.v1.layers.BatchNormalization()
 
         self.conv2 = tf.compat.v1.layers.Conv2D(filters=256, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
         self.bn2 = tf.compat.v1.layers.BatchNormalization()
         self.mp2 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
 
         # second CONV block
         self.conv3 = tf.compat.v1.layers.Conv2D(filters=256, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
         self.bn3 = tf.compat.v1.layers.BatchNormalization()
         self.conv4 = tf.compat.v1.layers.Conv2D(filters=512, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
         self.bn4 = tf.compat.v1.layers.BatchNormalization()
         self.mp4 = tf.compat.v1.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid")
 
         # third CONV block
         self.conv5 = tf.compat.v1.layers.Conv2D(filters=512, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
         self.bn5 = tf.compat.v1.layers.BatchNormalization()
         self.conv6 = tf.compat.v1.layers.Conv2D(filters=512, kernel_size=(3, 3),
-                                      kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
-                                      strides=(1, 1), padding="same")
+                                                kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                    stddev=0.08),
+                                                strides=(1, 1), padding="same")
 
         self.bn6 = tf.compat.v1.layers.BatchNormalization()
         self.bn6_1_1 = tf.compat.v1.layers.BatchNormalization()
@@ -514,7 +530,8 @@ class MiniGoogLeNetConvolutionModule(object):
         print("[INFO] Using MiniGoogLeNetConvolutionModule: {0}".format(self.id))
         self.activation = activation_func
         self.conv = tf.compat.v1.layers.Conv2D(filters=out_filters, kernel_size=(filter_h, filter_w),
-                                               kernel_initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.08),
+                                               kernel_initializer=tf.compat.v1.truncated_normal_initializer(
+                                                   stddev=0.08),
                                                strides=stride, padding=padding)
         self.bn = tf.compat.v1.layers.BatchNormalization()
 

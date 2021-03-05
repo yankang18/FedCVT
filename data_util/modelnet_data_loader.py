@@ -20,9 +20,6 @@ def get_two_party_data(data_dir, data_type, k, c=10):
     x = list()  # the datapath of 2 different png files
     y = list()  # the corresponding label
 
-    mean = 0.89156885
-    std = 0.18063523
-
     subfixes = ['_' + str(i).zfill(3) + '.png' for i in range(1, 13)]
     for label in classes[:c]:
         all_files = [d for d in os.listdir(os.path.join(data_dir, label, data_type))]
@@ -48,7 +45,7 @@ def get_two_party_data(data_dir, data_type, k, c=10):
                 Xb_img = Xb_img / 255
 
                 x.append([Xa_img, Xb_img])
-                one_hot_label = [0] * 10
+                one_hot_label = [0] * c
                 one_hot_label[class_to_idx[label]] = 1
                 # self.y.append([self.class_to_idx[label]])
                 y.append(one_hot_label)

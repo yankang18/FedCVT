@@ -120,7 +120,6 @@ class LogisticRegression(object):
 
     def _forward_output(self, X):
         return tf.nn.softmax(self._forward_logits(X))
-        # return tf.sigmoid(self._forward_logits(X))
 
     def _add_e2e_training_ops(self):
         # regularization loss

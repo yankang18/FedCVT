@@ -5,10 +5,10 @@ import tensorflow as tf
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score, roc_auc_score
 from sklearn.utils import shuffle
 
-from autoencoder import Autoencoder
-from data_util.nus_wide_processed_data_util import TwoPartyNusWideDataLoader
-from logistic_regression import LogisticRegression
-from regularization import EarlyStoppingCheckPoint
+from models.autoencoder import Autoencoder
+from data_util.nus_wide_data_util import TwoPartyNusWideDataLoader
+from models.softmax_regression import LogisticRegression
+from models.regularization import EarlyStoppingCheckPoint
 from collections import OrderedDict
 
 

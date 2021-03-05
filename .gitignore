@@ -11,5 +11,5 @@ credit_g/
 experimental_results/
 spambase/
 training_log_info/
-benchmark_info/
+benchmark/benchmark_info/
 venv/

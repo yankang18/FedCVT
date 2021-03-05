@@ -1,4 +1,4 @@
-from data_util.nus_wide_processed_data_util import TwoPartyNusWideDataLoader
+from data_util.nus_wide_data_util import TwoPartyNusWideDataLoader
 
 
 def get_data_with_multi_classes(data_dir, target_labels):

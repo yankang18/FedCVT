@@ -8,8 +8,8 @@ import tensorflow as tf
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score, roc_auc_score
 
 from expanding_vertical_transfer_learning_param import FederatedModelParam
-from logistic_regression import LogisticRegression
-from regularization import EarlyStoppingCheckPoint
+from models.softmax_regression import LogisticRegression
+from models.regularization import EarlyStoppingCheckPoint
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
 from vertical_sstl_representation_learner import sharpen
@@ -320,7 +320,6 @@ class VerticalFederatedTransferLearning(object):
         return train_component_list, repr_list
 
     def build(self):
-        # self.fed_reprs, self.fed_Y, self.comm_reprs_loss_list = self._build_feature_extraction()
         learning_rate = self.model_param.learning_rate
         fed_input_dim = self.model_param.fed_input_dim
         fed_hidden_dim = self.model_param.fed_hidden_dim
@@ -391,9 +390,7 @@ class VerticalFederatedTransferLearning(object):
         pred_soft_lbls is the output from a softmax layer (num_examples x num_classes)
         true_lbls is labels (num_examples x num_classes). Note that y is one-hot encoded vector.
         """
-        # m = true_lbls.shape[0]
-        log_likelihood = -tf.reduce_sum(input_tensor=tf.math.log(pred_soft_lbls + 1e-9) * true_lbls, axis=1)
-        # print("2 log_likelihood {0}".format(log_likelihood))
+        log_likelihood = -tf.reduce_sum(input_tensor=tf.math.log(pred_soft_lbls + 1e-8) * true_lbls, axis=1)
         loss = tf.reduce_mean(input_tensor=log_likelihood)
         return loss
 
@@ -1011,11 +1008,11 @@ class VerticalFederatedTransferLearning(object):
         host_block_indices = None
         estimation_block_size = None
 
-        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", epoch_patience=2, file_path=training_info_file_name)
+        early_stopping = EarlyStoppingCheckPoint(monitor="all_acc", epoch_patience=3, file_path=training_info_file_name)
         early_stopping.set_model(self)
         early_stopping.on_train_begin()
 
-        with open(training_info_file_name, "a", newline='') as logfile:
+        with open(training_info_file_name + ".csv", "a", newline='') as logfile:
             logger = csv.DictWriter(logfile, fieldnames=list(early_stopping.get_log_info().keys()))
             logger.writeheader()
 
@@ -1033,6 +1030,7 @@ class VerticalFederatedTransferLearning(object):
             self.vftl_guest.set_session(sess)
             self.vftl_host.set_session(sess)
             self.fed_lr.set_session(sess)
+            self.guest_lr.set_session(sess)
 
             sess.run(init)
 
@@ -1050,6 +1048,7 @@ class VerticalFederatedTransferLearning(object):
                 ol_block_idx = 0
                 nol_guest_block_idx = 0
                 nol_host_block_idx = 0
+
                 ested_guest_block_idx = -1
                 ested_host_block_idx = -1
 
@@ -1066,6 +1065,10 @@ class VerticalFederatedTransferLearning(object):
 
                 iteration = 0
                 while True:
+
+                    #
+                    # iterate batch index for overlapping samples
+                    #
                     print("[INFO] => iteration:{0} of ep: {1}".format(iteration, i))
                     if ol_end >= ol_guest_block_size:
                         ol_block_idx += 1
@@ -1080,17 +1083,14 @@ class VerticalFederatedTransferLearning(object):
 
                     ol_start = ol_batch_size * ol_batch_idx
                     ol_end = ol_batch_size * ol_batch_idx + ol_batch_size
-
                     print("[DEBUG] ol_block_idx:", ol_block_idx)
                     print("[DEBUG] ol_guest_block_size:", ol_guest_block_size)
                     print("[DEBUG] ol_host_block_size:", ol_host_block_size)
                     print("[DEBUG] ol batch from {0} to {1} ".format(ol_start, ol_end))
 
-                    # nol_guest_start = nol_guest_batch_size * nol_guest_batch_idx
-                    # nol_guest_end = nol_guest_batch_size * nol_guest_batch_idx + nol_guest_batch_size
-                    # nol_host_start = nol_host_batch_size * nol_host_batch_idx
-                    # nol_host_end = nol_host_batch_size * nol_host_batch_idx + nol_host_batch_size
-
+                    #
+                    # iterate batch index for non-overlapping samples of guest
+                    #
                     if nol_guest_end >= nol_guest_block_size:
                         nol_guest_block_idx += 1
                         if nol_guest_block_idx == guest_nol_block_num:
@@ -1105,30 +1105,33 @@ class VerticalFederatedTransferLearning(object):
 
                     nol_guest_start = nol_guest_batch_size * nol_guest_batch_idx
                     nol_guest_end = nol_guest_batch_size * nol_guest_batch_idx + nol_guest_batch_size
-
                     print("[DEBUG] nol_guest_block_idx:", nol_guest_block_idx)
                     print("[DEBUG] nol_guest_block_size:", nol_guest_block_size)
                     print("[DEBUG] nol guest batch from {0} to {1} ".format(nol_guest_start, nol_guest_end))
 
+                    #
+                    # iterate batch index for non-overlapping samples of host
+                    #
                     if nol_host_end >= nol_host_block_size:
                         nol_host_block_idx += 1
                         if nol_host_block_idx == host_nol_block_num:
                             # if all blocks for non-overlapping samples of host have been visited,
                             # end current epoch and start a new epoch
-                            print(
-                                "[INFO] all blocks for non-overlapping samples of "
-                                "host have been visited, end current epoch and start a new epoch")
+                            print("[INFO] all blocks for non-overlapping samples of "
+                                  "host have been visited, end current epoch and start a new epoch")
                             break
                         nol_host_block_size = self.vftl_host.load_nol_block(nol_host_block_idx)
                         nol_host_batch_idx = 0
 
                     nol_host_start = nol_host_batch_size * nol_host_batch_idx
                     nol_host_end = nol_host_batch_size * nol_host_batch_idx + nol_host_batch_size
-
                     print("[DEBUG] nol_host_block_idx:", nol_host_block_idx)
                     print("[DEBUG] nol_host_block_size:", nol_host_block_size)
                     print("[DEBUG] nol host batch from {0} to {1}".format(nol_host_start, nol_host_end))
 
+                    #
+                    # iterate estimation block index or estimation sample indices.
+                    #
                     if using_block_idx:
                         print("[DEBUG] Using block idx")
 
@@ -1143,22 +1146,13 @@ class VerticalFederatedTransferLearning(object):
                         print("[DEBUG] ested_guest_block_idx:", ested_guest_block_idx)
                         print("[DEBUG] ested_host_block_idx:", ested_host_block_idx)
                     else:
-                        print("[DEBUG] # Using block indices")
+                        print("[DEBUG] Using block indices")
                         estimation_block_size = self.model_param.all_sample_block_size
                         guest_block_indices = np.random.choice(guest_all_training_size, estimation_block_size)
                         host_block_indices = np.random.choice(host_all_training_size, estimation_block_size)
+                        print("[DEBUG] guest_block_indices: ", guest_block_indices)
                         print("[DEBUG] guest_block_indices:", len(guest_block_indices))
                         print("[DEBUG] host_block_indices:", len(host_block_indices))
-
-                    if debug:
-                        print("[DEBUG] ol_start:ol_end ", ol_start, ol_end)
-                        print("[DEBUG] nol_guest_start:nol_guest_end ", nol_guest_start, nol_guest_end)
-                        print("[DEBUG] nol_host_start:nol_host_end ", nol_host_start, nol_host_end)
-                        if guest_block_indices is not None:
-                            print("[DEBUG] num guest_block_indices:", len(guest_block_indices))
-                            print("[DEBUG] num host_block_indices:", len(host_block_indices))
-
-                    print("[DEBUG] guest_block_indices: ", guest_block_indices)
 
                     loss = self._train(sess=sess,
                                        overlap_batch_range=(ol_start, ol_end),
@@ -1238,11 +1232,11 @@ class VerticalFederatedTransferLearning(object):
 
                         print("=" * 100)
                         print(f"epoch:{i}, iteration:{iteration}")
-                        print("[INFO] => fscore: all, fed_guest, only_guest, host", all_fscore, g_fed_fscore_mean,
+                        print("[INFO] fscore: all, fed_guest, only_guest, host", all_fscore, g_fed_fscore_mean,
                               g_only_fscore_mean, h_fscore_mean)
-                        print("[INFO] => acc: all, fed_guest, only_guest, host", all_acc, g_fed_acc_mean, g_only_acc_mean,
+                        print("[INFO] acc: all, fed_guest, only_guest, host", all_acc, g_fed_acc_mean, g_only_acc_mean,
                               h_acc_mean)
-                        print("[INFO] => auc: all, fed_guest, only_guest, host", all_auc, g_fed_auc_mean, g_only_auc_mean,
+                        print("[INFO] auc: all, fed_guest, only_guest, host", all_auc, g_fed_auc_mean, g_only_auc_mean,
                               h_auc_mean)
                         print("=" * 100)
 
@@ -1268,8 +1262,8 @@ class VerticalFederatedTransferLearning(object):
                     break
 
         end_time = time.time()
-        print("training time (s):", end_time - start_time)
-        print("stopped epoch, batch:", early_stopping.stopped_epoch, early_stopping.stopped_batch)
+        print(f"training time (s):{end_time - start_time}")
+        print(f"stopped epoch:{early_stopping.stopped_epoch}, batch:{early_stopping.stopped_batch}")
         early_stopping.print_log_of_best_result()
         # series_plot(losses=loss_list, fscores=all_fscore_list, aucs=all_acc_list)
         return early_stopping.get_log_info(), loss_list

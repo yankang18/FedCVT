@@ -3,7 +3,7 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from cnn_models import ClientVGG8
+from models.cnn_models import ClientVGG8
 from data_util.modelnet_data_loader import get_two_party_data
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
 from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
@@ -40,12 +40,15 @@ class ExpandingVFTLGuestConstructor(object):
         data_folder = self.party_param.data_folder
         dense_units = self.party_param.dense_units
 
-        num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
         overlap_indices = self.fed_model_param.overlap_indices
         non_overlap_indices = self.fed_model_param.non_overlap_indices
-        # guest_non_overlap_indices = non_overlap_indices[:num_guest_nonoverlap_samples]
-        guest_non_overlap_indices = non_overlap_indices
+
+        num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
+        guest_non_overlap_indices = non_overlap_indices[:num_guest_nonoverlap_samples]
+        # guest_non_overlap_indices = non_overlap_indices
         guest_all_indices = np.concatenate([overlap_indices, guest_non_overlap_indices])
+        print("[DEBUG] host overlap_indices:", overlap_indices.shape, overlap_indices.shape)
+        print("[DEBUG] guest all_indices:", guest_all_indices.shape, guest_all_indices.shape)
 
         nn_prime = ClientVGG8("cnn_0", dense_units=dense_units)
         nn_prime.build(input_shape=input_shape)
@@ -82,16 +85,19 @@ class ExpandingVFTLHostConstructor(object):
         input_shape = self.party_param.input_shape
         data_folder = self.party_param.data_folder
         dense_units = self.party_param.dense_units
+        # num_classes = self.party_param.n_class
+
+        overlap_indices = self.fed_model_param.overlap_indices
+        non_overlap_indices = self.fed_model_param.non_overlap_indices
 
         num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
         num_host_nonoverlap_samples = self.fed_model_param.num_host_nonoverlap_samples
-        overlap_indices = self.fed_model_param.overlap_indices
-        non_overlap_indices = self.fed_model_param.non_overlap_indices
-        # host_non_overlap_indices = non_overlap_indices[num_guest_nonoverlap_samples:
-        #                                                num_guest_nonoverlap_samples + num_host_nonoverlap_samples]
-        host_non_overlap_indices = non_overlap_indices
-        print("overlap_indices:", overlap_indices.shape, host_non_overlap_indices.shape)
+        host_non_overlap_indices = non_overlap_indices[num_guest_nonoverlap_samples:
+                                                       num_guest_nonoverlap_samples + num_host_nonoverlap_samples]
+        # host_non_overlap_indices = non_overlap_indices
         host_all_indices = np.concatenate([overlap_indices, host_non_overlap_indices])
+        print("[DEBUG] host overlap_indices:", overlap_indices.shape, overlap_indices.shape)
+        print("[DEBUG] host all_indices:", host_all_indices.shape, host_all_indices.shape)
 
         nn_prime = ClientVGG8("cnn_2", dense_units=dense_units)
         nn_prime.build(input_shape=input_shape)
@@ -115,16 +121,17 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                    overlap_sample_batch_size,
                    non_overlap_sample_batch_size,
                    estimation_block_size,
-                   training_info_file_name):
+                   training_info_file_name,
+                   num_classes):
 
     print("############# Data Info ##############")
     print("X_guest_train shape", X_guest_train.shape)
     print("X_host_train shape", X_host_train.shape)
     print("y_train shape", y_train.shape)
-
     print("X_guest_test shape", X_guest_test.shape)
     print("X_host_test shape", X_host_test.shape)
     print("y_test shape", y_test.shape)
+    print("######################################")
 
     # sample_num = num_overlap / 10
     # lbl_sample_idx_dict = {}
@@ -148,8 +155,8 @@ def run_experiment(X_guest_train, X_host_train, y_train,
     num_train = X_guest_train.shape[0]
     non_overlap_indices = np.setdiff1d(range(num_train), overlap_indices)
     num_non_overlap = num_train - num_overlap
-    print("overlap_indices:\n", overlap_indices, len(set(overlap_indices)))
-    print("non_overlap_indices:\n", non_overlap_indices, len(set(non_overlap_indices)))
+    print("[INFO] overlap_indices:\n", overlap_indices, len(set(overlap_indices)))
+    print("[INFO] non_overlap_indices:\n", non_overlap_indices, len(set(non_overlap_indices)))
 
     combine_axis = 1
     dense_units = 64
@@ -157,19 +164,18 @@ def run_experiment(X_guest_train, X_host_train, y_train,
     input_dim = dense_units * 2 * 2
     guest_input_dim = int(input_dim / 2)
 
-    num_class = 10
     guest_model_param = PartyModelParam(data_folder=None,
                                         apply_dropout=True,
                                         keep_probability=0.75,
                                         input_shape=input_shape,
                                         dense_units=dense_units,
-                                        n_class=num_class)
+                                        n_class=num_classes)
     host_model_param = PartyModelParam(data_folder=None,
                                        apply_dropout=True,
                                        keep_probability=0.75,
                                        input_shape=input_shape,
                                        dense_units=dense_units,
-                                       n_class=num_class)
+                                       n_class=num_classes)
 
     parallel_iterations = 100
 
@@ -205,7 +211,7 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           using_block_idx=False,
                                           learning_rate=learning_rate,
                                           fed_reg_lambda=0.0001,
-                                          guest_reg_lambda=0.0,
+                                          guest_reg_lambda=0.0001,
                                           loss_weight_dict=loss_weight_dict,
                                           overlap_indices=overlap_indices,
                                           non_overlap_indices=non_overlap_indices,
@@ -219,12 +225,12 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                           overlap_sample_batch_num=num_overlap,
                                           all_sample_block_size=estimation_block_size,
-                                          label_prob_sharpen_temperature=0.3,
+                                          label_prob_sharpen_temperature=0.1,
                                           sharpen_temperature=0.1,
-                                          fed_label_prob_threshold=0.6,
-                                          host_label_prob_threshold=0.3,
+                                          fed_label_prob_threshold=0.5,
+                                          host_label_prob_threshold=0.25,
                                           training_info_file_name=training_info_file_name,
-                                          valid_iteration_interval=5)
+                                          valid_iteration_interval=6)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param,
@@ -254,7 +260,7 @@ if __name__ == "__main__":
 
     data_dir = "../../Data/modelnet40v1png/"
 
-    num_classes = 10
+    num_classes = 20
     X_guest_train, X_host_train, Y_train = get_two_party_data(data_dir=data_dir, data_type="train", k=2, c=num_classes)
     X_guest_test, X_host_test, Y_test = get_two_party_data(data_dir=data_dir, data_type="test", k=2, c=num_classes)
 
@@ -264,16 +270,12 @@ if __name__ == "__main__":
     #
     # Start training
     #
-    epoch = 20
-    estimation_block_size = 2000
+    epoch = 30
+    estimation_block_size = 5000
     overlap_sample_batch_size = 128
-    non_overlap_sample_batch_size = 128
-    num_train = 3500
-    test_start_index = 3500
-    print("num_train", num_train)
-    print("test_start_index", test_start_index)
+    non_overlap_sample_batch_size = 256
 
-    num_overlap = 500
+    num_overlap_list = [500]
     lambda_dis_shared_reprs = [0.1]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.01]
     lambda_host_dis_ested_lbls_vs_true_lbls = [100]
@@ -282,8 +284,8 @@ if __name__ == "__main__":
     learning_rate = [0.001]
 
     file_folder = "training_log_info/"
-    timestamp = get_timestamp()
-    file_name = file_folder + "test_csv_read_" + timestamp + ".csv"
+    # timestamp = get_timestamp()
+    # file_name = file_folder + "modelnet_" + timestamp + ".csv"
 
     # lambda for auxiliary losses, which include:
     # (1) loss for minimizing distance between shared representations between host and guest
@@ -294,23 +296,29 @@ if __name__ == "__main__":
     # (6) loss for minimizing distance between estimated guest overlap representation and true guest representation
     # (7) loss for minimizing distance between estimated host overlap representation and true host representation
     # (8) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
+    timestamp = get_timestamp()
     hyperparameter_dict = dict()
-    for lbda_0 in learning_rate:
-        for lbda_1 in lambda_dis_shared_reprs:
-            for lbda_2 in lambda_sim_shared_reprs_vs_uniq_reprs:
-                for lbda_3 in lambda_host_dis_ested_lbls_vs_true_lbls:
-                    for lbda_4 in lambda_dis_ested_reprs_vs_true_reprs:
-                        for lbda_5 in lambda_host_dist_two_ested_lbls:
-                            hyperparameter_dict["learning_rate"] = lbda_0
-                            hyperparameter_dict["lambda_dist_shared_reprs"] = lbda_1
-                            hyperparameter_dict["lambda_sim_shared_reprs_vs_unique_repr"] = lbda_2
-                            hyperparameter_dict["lambda_host_dist_ested_lbl_vs_true_lbl"] = lbda_3
-                            hyperparameter_dict["lambda_dist_ested_repr_vs_true_repr"] = lbda_4
-                            hyperparameter_dict["lambda_host_dist_two_ested_lbl"] = lbda_5
-                            run_experiment(X_guest_train=X_guest_train, X_host_train=X_host_train, y_train=Y_train,
-                                           X_guest_test=X_guest_test, X_host_test=X_host_test, y_test=Y_test,
-                                           num_overlap=num_overlap, hyperparameter_dict=hyperparameter_dict, epoch=epoch,
-                                           overlap_sample_batch_size=overlap_sample_batch_size,
-                                           non_overlap_sample_batch_size=non_overlap_sample_batch_size,
-                                           estimation_block_size=estimation_block_size,
-                                           training_info_file_name=file_name)
+    for n_ol in num_overlap_list:
+        for lbda_0 in learning_rate:
+            for lbda_1 in lambda_dis_shared_reprs:
+                for lbda_2 in lambda_sim_shared_reprs_vs_uniq_reprs:
+                    for lbda_3 in lambda_host_dis_ested_lbls_vs_true_lbls:
+                        for lbda_4 in lambda_dis_ested_reprs_vs_true_reprs:
+                            for lbda_5 in lambda_host_dist_two_ested_lbls:
+
+                                file_name = file_folder + "modelnet_" + str(n_ol) + "_" + timestamp + ".csv"
+
+                                hyperparameter_dict["learning_rate"] = lbda_0
+                                hyperparameter_dict["lambda_dist_shared_reprs"] = lbda_1
+                                hyperparameter_dict["lambda_sim_shared_reprs_vs_unique_repr"] = lbda_2
+                                hyperparameter_dict["lambda_host_dist_ested_lbl_vs_true_lbl"] = lbda_3
+                                hyperparameter_dict["lambda_dist_ested_repr_vs_true_repr"] = lbda_4
+                                hyperparameter_dict["lambda_host_dist_two_ested_lbl"] = lbda_5
+                                run_experiment(X_guest_train=X_guest_train, X_host_train=X_host_train, y_train=Y_train,
+                                               X_guest_test=X_guest_test, X_host_test=X_host_test, y_test=Y_test,
+                                               num_overlap=n_ol, hyperparameter_dict=hyperparameter_dict, epoch=epoch,
+                                               overlap_sample_batch_size=overlap_sample_batch_size,
+                                               non_overlap_sample_batch_size=non_overlap_sample_batch_size,
+                                               estimation_block_size=estimation_block_size,
+                                               training_info_file_name=file_name,
+                                               num_classes=num_classes)

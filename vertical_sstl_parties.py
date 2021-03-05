@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import tensorflow as tf
 
-from autoencoder import FeatureExtractor
+from models.autoencoder import FeatureExtractor
 from expanding_vertical_transfer_learning_param import PartyModelParam
 
 
@@ -280,8 +280,8 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
         # X_overlap, Y_overlap = self.data_loader.retrieve_ol_train_X_y(overlap_batch_indices)
         # X_non_overlap, Y_non_overlap = self.data_loader.retrieve_nol_train_X_y(non_overlap_batch_indices)
         # X_all_ref_block, Y_all_ref_block = self.data_loader.retrieve_ested_block(block_idx)
-        print("overlap_batch_range", overlap_batch_range)
-        print("non_overlap_batch_range", non_overlap_batch_range)
+        print("[DEBUG] guest overlap_batch_range", overlap_batch_range)
+        print("[DEBUG] guest non_overlap_batch_range", non_overlap_batch_range)
 
         if block_indices is None:
             print("block_idx", block_idx)
@@ -294,7 +294,7 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
             # non_overlap_batch_indices = self.non_overlap_indices[non_overlap_batch_range[0]: non_overlap_batch_range[1]]
             # print("num overlap_batch_indices", len(overlap_batch_indices))
             # print("num non_overlap_batch_indices", len(non_overlap_batch_indices))
-            print("num block_indices", len(block_indices))
+            print("[DEBUG] num block_indices", len(block_indices))
 
             # X_overlap, Y_overlap = self.data_loader.retrieve_ol_train_X_y(overlap_batch_indices)
             # X_non_overlap, Y_non_overlap = self.data_loader.retrieve_nol_train_X_y(non_overlap_batch_indices)
@@ -312,12 +312,12 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
         # Y_non_overlap = self.Y_train[non_overlap_batch_indices, :]
         # Y_all_ref_block = self.Y_train[block_indices]
 
-        print("Guest X_overlap: {0}".format(len(X_overlap)))
-        print("Guest X_non_overlap: {0}".format(len(X_non_overlap)))
-        print("Guest X_all_ref_block: {0}".format(len(X_all_ref_block)))
-        print("Guest Y_overlap: {0}".format(len(Y_overlap)))
-        print("Guest Y_all_ref_block: {0}".format(len(Y_all_ref_block)))
-        print("Guest Y_non_overlap: {0}".format(len(Y_non_overlap)))
+        print("[DEBUG] Guest X_overlap: {0}".format(len(X_overlap)))
+        print("[DEBUG] Guest X_non_overlap: {0}".format(len(X_non_overlap)))
+        print("[DEBUG] Guest X_all_ref_block: {0}".format(len(X_all_ref_block)))
+        print("[DEBUG] Guest Y_overlap: {0}".format(len(Y_overlap)))
+        print("[DEBUG] Guest Y_all_ref_block: {0}".format(len(Y_all_ref_block)))
+        print("[DEBUG] Guest Y_non_overlap: {0}".format(len(Y_non_overlap)))
 
         # Y_overlap_for_est = Y_overlap - 1e-10
         # Y_all_ref_block_for_est = Y_all_ref_block - 1e-10
@@ -576,13 +576,14 @@ class ExpandingVFTLHost(ExpandingVFTLParty):
         if block_indices is None and block_idx is None:
             raise Exception("Both block_indices and block_idx are None")
 
+        print("[DEBUG] host overlap_batch_range", overlap_batch_range)
+        print("[DEBUG] host non_overlap_batch_range", non_overlap_batch_range)
+
         if block_indices is None:
             X_overlap, _ = self.data_loader.retrieve_ol_train_X_y(batch_range=overlap_batch_range)
             X_non_overlap, _ = self.data_loader.retrieve_nol_train_X_y(batch_range=non_overlap_batch_range)
             X_all_ref_block, _ = self.data_loader.retrieve_ested_block(block_idx=block_idx)
         else:
-            # overlap_batch_indices = self.overlap_indices[overlap_batch_range[0]: overlap_batch_range[1]]
-            # non_overlap_batch_indices = self.non_overlap_indices[non_overlap_batch_range[0]: non_overlap_batch_range[1]]
             X_overlap, _ = self.data_loader.retrieve_ol_train_X_y(batch_range=overlap_batch_range)
             X_non_overlap, _ = self.data_loader.retrieve_nol_train_X_y(batch_range=non_overlap_batch_range)
             X_all_ref_block, _ = self.data_loader.retrieve_ested_train_X_y(batch_indices=block_indices)

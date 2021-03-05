@@ -34,7 +34,7 @@ class FileDataLoader(object):
             print("loaded features with shape {0}".format(features.shape))
 
             # Return the training data in batches of size <batch_size> or less
-            return batch_features_labels(features, labels, batch_size)
+            return batch_features_labels(features, labels, self.batch_size)
 
 
 class SimpleDataLoader(object):
@@ -79,7 +79,7 @@ def print_training_stats(sess, extractor, feature_batch, label_batch, valid_feat
                              extractor.is_train: False
                          })
 
-    print('Loss: {:>10.4f} Validation Accuracy: {:.6f}'.format(loss, valid_acc))
+    print('Loss: {:>8.6f} Validation Accuracy: {:.4f}'.format(loss, valid_acc))
     return valid_acc
 
 
@@ -92,7 +92,7 @@ def print_testing_stats(sess, extractor, test_features, test_labels):
                             extractor.is_train: False
                         })
 
-    print('Test Accuracy: {:.6f}'.format(test_acc))
+    print('Test Accuracy: {:.4f}'.format(test_acc))
     return test_acc
 
 
@@ -147,9 +147,10 @@ def train(train_data_loader, val_features, val_labels, test_features, test_label
 
         end_time = time.time()
         running_time = end_time - start_time
-        print("{0} total running time {1}:".format(tag_INFO, running_time))
+        print("[INFO] {0} total running time {1}:".format(tag_INFO, running_time))
 
         # Save Model
         saver = tf.compat.v1.train.Saver()
         save_path = saver.save(sess, save_model_path)
+        print(f"[INFO] save model to path:{save_path}")
         return save_path, best_test_acc

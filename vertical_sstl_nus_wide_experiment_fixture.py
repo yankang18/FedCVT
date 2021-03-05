@@ -3,8 +3,8 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from autoencoder import Autoencoder
-from data_util.nus_wide_processed_data_util import TwoPartyNusWideDataLoader
+from models.autoencoder import Autoencoder
+from data_util.nus_wide_data_util import TwoPartyNusWideDataLoader
 from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
 from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
@@ -130,6 +130,7 @@ def run_experiment(X_guest_train, X_host_train, y_train,
     print("X_guest_test shape", X_guest_test.shape)
     print("X_host_test shape", X_host_test.shape)
     print("y_test shape", y_test.shape)
+    print("######################################")
 
     # sample_num = num_overlap / 10
     # lbl_sample_idx_dict = {}
@@ -222,12 +223,12 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                           overlap_sample_batch_num=num_overlap,
                                           all_sample_block_size=estimation_block_size,
-                                          label_prob_sharpen_temperature=0.5,
+                                          label_prob_sharpen_temperature=0.4,
                                           sharpen_temperature=sharpen_temperature,
                                           fed_label_prob_threshold=0.6,
-                                          host_label_prob_threshold=0.3,
+                                          host_label_prob_threshold=0.4,
                                           training_info_file_name=training_info_file_name,
-                                          valid_iteration_interval=3)
+                                          valid_iteration_interval=5)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param,
@@ -276,7 +277,7 @@ if __name__ == "__main__":
                          'grass', 'buildings', 'window', 'plants', 'lake']
     data_loader = TwoPartyNusWideDataLoader(file_dir)
     X_image_train, X_text_train, Y_train = data_loader.get_train_data(target_labels=target_label_list,
-                                                                    binary_classification=False)
+                                                                      binary_classification=False)
     X_image_test, X_text_test, Y_test = data_loader.get_test_data(target_labels=target_label_list,
                                                                   binary_classification=False)
 
@@ -314,24 +315,23 @@ if __name__ == "__main__":
     # Start training
     #
 
-    epoch = 20
+    epoch = 30
     estimation_block_size = 5000
     overlap_sample_batch_size = 256
-    non_overlap_sample_batch_size = 256
+    non_overlap_sample_batch_size = 512
     sharpen_temperature = 0.1
 
     # num_overlap = 500
-    num_overlap_list = [1000]
+    num_overlap_list = [2000]
     lambda_dis_shared_reprs = [0.01]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.01]
     lambda_host_dis_ested_lbls_vs_true_lbls = [100]
-    lambda_dis_ested_reprs_vs_true_reprs = [0.1]
+    lambda_dis_ested_reprs_vs_true_reprs = [0.01]
     lambda_host_dist_two_ested_lbls = [0.01]
     learning_rate = [0.01]
 
     file_folder = "training_log_info/"
     timestamp = get_timestamp()
-    file_name = file_folder + "test_csv_read_" + timestamp
 
     # hyperparam_list = list()
     # for lr in learning_rate:
@@ -359,6 +359,9 @@ if __name__ == "__main__":
                     for lbda_3 in lambda_host_dis_ested_lbls_vs_true_lbls:
                         for lbda_4 in lambda_dis_ested_reprs_vs_true_reprs:
                             for lbda_5 in lambda_host_dist_two_ested_lbls:
+
+                                file_name = file_folder + "nuswide_" + str(n_ol) + "_" + timestamp
+
                                 hyperparameter_dict["learning_rate"] = lbda_0
                                 hyperparameter_dict["lambda_dist_shared_reprs"] = lbda_1
                                 hyperparameter_dict["lambda_sim_shared_reprs_vs_unique_repr"] = lbda_2
