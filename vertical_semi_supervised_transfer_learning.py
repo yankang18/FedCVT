@@ -14,8 +14,6 @@ from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
 from vertical_sstl_representation_learner import sharpen
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
 
 class VerticalFederatedTransferLearning(object):
 
@@ -140,21 +138,29 @@ class VerticalFederatedTransferLearning(object):
         fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_uniq, Uh_non_overlap_comm],
                                                axis=1)
 
+        Uh_non_overlap_reprs = tf.concat([Uh_non_overlap_uniq, Uh_non_overlap_comm], axis=1)
+
         # estimate labels for federated feature representations with guest's representations estimated.
         self.nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
 
         # estimate labels for estimated feature representations of missing samples of guest
         self.nl_ested_lbls_for_lr_ested_guest_reprs = self.guest_lr.predict_lbls_for_reprs(Ug_non_overlap_ested_reprs)
 
+        # estimate labels for feature representations of non-overlapping samples of host
+        self.nl_ested_lbls_for_lr_host_reprs = self.host_lr.predict_lbls_for_reprs(Uh_non_overlap_reprs)
+
         self.nl_ested_lbls_for_fed_ested_guest_reprs = sharpen(self.nl_ested_lbls_for_fed_ested_guest_reprs,
                                                                temperature=label_prob_sharpen_temperature)
         self.nl_ested_lbls_for_lr_ested_guest_reprs = sharpen(self.nl_ested_lbls_for_lr_ested_guest_reprs,
                                                               temperature=label_prob_sharpen_temperature)
+        self.nl_ested_lbls_for_lr_host_reprs = sharpen(self.nl_ested_lbls_for_lr_host_reprs,
+                                                       temperature=label_prob_sharpen_temperature)
 
         print("fed_nl_w_guest_ested_reprs:", fed_nl_w_guest_ested_reprs)
         print("nl_ested_lbls_for_att_ested_guest_reprs:", self.nl_ested_lbls_for_att_ested_guest_reprs)
         print("nl_ested_lbls_for_fed_ested_guest_reprs:", self.nl_ested_lbls_for_fed_ested_guest_reprs)
         print("nl_ested_lbls_for_lr_ested_guest_reprs:", self.nl_ested_lbls_for_lr_ested_guest_reprs)
+        print("nl_ested_lbls_for_lr_host_reprs:", self.nl_ested_lbls_for_lr_host_reprs)
 
         ##########
         # aggregate host non-overlap feature representations and candidate labels
@@ -166,6 +172,7 @@ class VerticalFederatedTransferLearning(object):
         # representations are estimated and two estimated candidate labels.
         self.fed_nl_w_ested_guest_reprs_n_candidate_labels = tf.concat(
             [fed_nl_w_guest_ested_reprs,
+             self.nl_ested_lbls_for_lr_host_reprs,
              self.nl_ested_lbls_for_lr_ested_guest_reprs,
              self.nl_ested_lbls_for_fed_ested_guest_reprs],
             axis=1)
@@ -204,11 +211,13 @@ class VerticalFederatedTransferLearning(object):
 
         train_guest_ol_reprs = tf.concat(Ug_overlap, axis=1)
         train_guest_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+        train_host_ol_reprs = tf.concat(Uh_overlap, axis=1)
         train_guest_reprs = tf.concat((train_guest_ol_reprs, train_guest_nl_reprs), axis=0)
         train_guest_Y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
 
         print("train_guest_ol_reprs:", train_guest_ol_reprs)
         print("train_guest_nl_reprs:", train_guest_nl_reprs)
+        print("train_host_ol_reprs:", train_host_ol_reprs)
         print("train_guest_reprs:", train_guest_reprs)
         print("train_guest_Y:", train_guest_Y)
 
@@ -316,7 +325,9 @@ class VerticalFederatedTransferLearning(object):
         label_alignment_loss = self.get_alignment_loss(self.uniq_lbls, self.comm_lbls)
         assistant_loss_dict['lambda_host_dist_two_ested_lbl'] = label_alignment_loss
 
-        train_component_list = [train_fed_reprs, train_guest_reprs, train_fed_Y, train_guest_Y, assistant_loss_dict]
+        train_component_list = [train_fed_reprs, train_guest_reprs, train_host_ol_reprs,
+                                train_fed_Y, train_guest_Y, Y_overlap,
+                                assistant_loss_dict]
         return train_component_list, repr_list
 
     def build(self):
@@ -350,15 +361,22 @@ class VerticalFederatedTransferLearning(object):
         self.guest_lr = LogisticRegression(2)
         self.guest_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
 
+        self.host_lr = LogisticRegression(3)
+        self.host_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
+
         train_components, repr_list = self._do_build()
-        self.fed_reprs, guest_reprs, self.fed_Y, guest_Y, self.assistant_loss_dict = train_components
+        self.fed_reprs, guest_reprs, host_reprs, self.fed_Y, guest_Y, host_Y, self.loss_dict = train_components
         fed_overlap_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs = repr_list
 
         self.guest_lr.set_ops(learning_rate=learning_rate, reg_lambda=guest_reg_lambda,
                               tf_X_in=guest_reprs, tf_labels_in=guest_Y)
         self.guest_lr.set_guest_side_predict_ops(guest_nl_reprs)
 
-        self.fed_lr.set_loss_factors(self.assistant_loss_dict, loss_weight_dict)
+        self.host_lr.set_ops(learning_rate=learning_rate, reg_lambda=guest_reg_lambda,
+                              tf_X_in=host_reprs, tf_labels_in=host_Y)
+        # self.host_lr.set_guest_side_predict_ops(guest_nl_reprs)
+
+        self.fed_lr.set_loss_factors(self.loss_dict, loss_weight_dict)
         self.fed_lr.set_ops(learning_rate=learning_rate, reg_lambda=fed_reg_lambda,
                             tf_X_in=self.fed_reprs, tf_labels_in=self.fed_Y)
         self.fed_lr.set_two_sides_predict_ops(fed_overlap_reprs)
@@ -448,7 +466,7 @@ class VerticalFederatedTransferLearning(object):
                            host_all_training_size,
                            block_size,
                            estimation_block_num=None,
-                           round=5,
+                           round=3,
                            debug=True):
         # if debug:
         print("[INFO] ------> guest side predict")
@@ -520,7 +538,7 @@ class VerticalFederatedTransferLearning(object):
                           guest_all_training_size,
                           block_size,
                           estimation_block_num=None,
-                          round=5,
+                          round=3,
                           debug=True):
         # if debug:
         print("[INFO] ------> host side predict")
@@ -723,11 +741,13 @@ class VerticalFederatedTransferLearning(object):
         # print(self.Uh_overlap_comm_temp)
         # print("=======")
 
-        _, _, fed_reprs, fed_Y, shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, ol_uniq_lbl_loss, ol_comm_lbl_loss, \
+        _, _, _, fed_reprs, fed_Y, shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, \
+        ol_uniq_lbl_loss, ol_comm_lbl_loss, \
         guest_repr_dist, host_repr_dist, ested_lbl_dist, regularization_loss, pred_loss, mean_pred_loss, ob_loss, \
         logits, train_lbls, true_lbls_, computed_gradients, num_selected_samples, training_fed_reprs_shape, \
         host_non_overlap_reprs_w_condidate_labels, uniqlbls, commlbls, Ug_non_overlap_ested_reprs_w_lbls, \
-        Ug_non_overlap_ested_lbls, nl_ested_lbls_for_fed_ested_guest_reprs, nl_ested_lbls_for_lr_ested_guest_reprs, \
+        nl_ested_lbls_for_att_ested_guest_reprs, nl_ested_lbls_for_fed_ested_guest_reprs, \
+        nl_ested_lbls_for_lr_ested_guest_reprs, nl_ested_lbls_for_lr_host_reprs, \
         Ug_all_comm, Uh_all_comm, Ug_all_uniq, Uh_all_uniq, \
         Ug_non_overlap_uniq, Uh_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_comm, \
         Ug_overlap_uniq, Uh_overlap_uniq, Ug_overlap_comm, Uh_overlap_comm = sess.run(
@@ -736,16 +756,17 @@ class VerticalFederatedTransferLearning(object):
                 # self.selected_host_nonoverlap_samples_shape,
                 self.fed_lr.e2e_train_op,
                 self.guest_lr.e2e_train_op,
+                self.host_lr.e2e_train_op,
                 self.fed_reprs,
                 self.fed_Y,
-                self.assistant_loss_dict['lambda_dist_shared_reprs'],
-                self.assistant_loss_dict['lambda_guest_sim_shared_reprs_vs_unique_repr'],
-                self.assistant_loss_dict['lambda_host_sim_shared_reprs_vs_unique_repr'],
-                self.assistant_loss_dict['lambda_host_dist_ested_uniq_lbl_vs_true_lbl'],
-                self.assistant_loss_dict['lambda_host_dist_ested_comm_lbl_vs_true_lbl'],
-                self.assistant_loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'],
-                self.assistant_loss_dict['lambda_host_dist_ested_repr_vs_true_repr'],
-                self.assistant_loss_dict['lambda_host_dist_two_ested_lbl'],
+                self.loss_dict['lambda_dist_shared_reprs'],
+                self.loss_dict['lambda_guest_sim_shared_reprs_vs_unique_repr'],
+                self.loss_dict['lambda_host_sim_shared_reprs_vs_unique_repr'],
+                self.loss_dict['lambda_host_dist_ested_uniq_lbl_vs_true_lbl'],
+                self.loss_dict['lambda_host_dist_ested_comm_lbl_vs_true_lbl'],
+                self.loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'],
+                self.loss_dict['lambda_host_dist_ested_repr_vs_true_repr'],
+                self.loss_dict['lambda_host_dist_two_ested_lbl'],
                 self.fed_lr.reg_loss,
                 self.fed_lr.pred_loss,
                 self.fed_lr.mean_pred_loss,
@@ -765,6 +786,7 @@ class VerticalFederatedTransferLearning(object):
                 self.nl_ested_lbls_for_att_ested_guest_reprs,
                 self.nl_ested_lbls_for_fed_ested_guest_reprs,
                 self.nl_ested_lbls_for_lr_ested_guest_reprs,
+                self.nl_ested_lbls_for_lr_host_reprs,
                 self.Ug_all_comm_temp,
                 self.Uh_all_comm_temp,
                 self.Ug_all_uniq_temp,
@@ -853,16 +875,23 @@ class VerticalFederatedTransferLearning(object):
         #     if np.isnan(host_nn_prime_i).any():
         #         print("host_nn_prime_i", idx, host_nn_prime_i)
 
-        print("[INFO] Ug_non_overlap_ested_lbls shape:", Ug_non_overlap_ested_lbls.shape)
-        print("[INFO] fed_host_non_overlap_ested_lbls shape:", nl_ested_lbls_for_fed_ested_guest_reprs.shape)
+        print("[INFO] nl_ested_lbls_for_att_ested_guest_reprs shape:", nl_ested_lbls_for_att_ested_guest_reprs.shape)
         print("[INFO] nl_ested_lbls_for_lr_ested_guest_reprs shape:", nl_ested_lbls_for_lr_ested_guest_reprs.shape)
+        print("[INFO] nl_ested_lbls_for_lr_host_reprs shape:", nl_ested_lbls_for_lr_host_reprs.shape)
+        print("[INFO] fed_host_non_overlap_ested_lbls shape:", nl_ested_lbls_for_fed_ested_guest_reprs.shape)
+
         present_count = 0
-        for att_lbl, lr_lbl, fed_lbl in zip(Ug_non_overlap_ested_lbls, nl_ested_lbls_for_lr_ested_guest_reprs,
-                                            nl_ested_lbls_for_fed_ested_guest_reprs):
+        for att_lbl, lr_host_lbl, lr_lbl, fed_lbl in zip(nl_ested_lbls_for_att_ested_guest_reprs,
+                                                         nl_ested_lbls_for_lr_host_reprs,
+                                                         nl_ested_lbls_for_lr_ested_guest_reprs,
+                                                         nl_ested_lbls_for_fed_ested_guest_reprs):
             fed_lbl_idx = np.argmax(fed_lbl)
+            lr_host_lbl_idx = np.argmax(lr_host_lbl)
             lr_lbl_idx = np.argmax(lr_lbl)
             att_lbl_idx = np.argmax(att_lbl)
+
             fed_lbl_prob = np.max(fed_lbl)
+            lr_host_lbl_prob = np.max(lr_host_lbl)
             lr_lbl_prob = np.max(lr_lbl)
             att_lbl_prob = np.max(att_lbl)
             # print("fed_lbl:", fed_lbl)
@@ -872,13 +901,19 @@ class VerticalFederatedTransferLearning(object):
                 # if present_count < 20:
                 # print("lr_lbl:", lr_lbl)
                 # print("fed_lbl:", fed_lbl)
-                print("att         lr         fed")
-                print("[{0}]:{1}, [{2}]:{3}, [{4}]:{5}".format(att_lbl_idx, att_lbl_prob,
-                                                               lr_lbl_idx, lr_lbl_prob,
-                                                               fed_lbl_idx, fed_lbl_prob))
+                print("att         lr_host         lr_guest         fed")
+                print("[{0}]:{1:0.6f}, [{2}]:{3:0.6f}, [{4}]:{5:0.6f},  [{6}]:{7:0.6f}".format(att_lbl_idx,
+                                                                                               att_lbl_prob,
+                                                                                               lr_host_lbl_idx,
+                                                                                               lr_host_lbl_prob,
+                                                                                               lr_lbl_idx,
+                                                                                               lr_lbl_prob,
+                                                                                               fed_lbl_idx,
+                                                                                               fed_lbl_prob))
                 present_count += 1
 
-        print("total number of equal predictions: {0}/{1}".format(present_count, len(Ug_non_overlap_ested_lbls)))
+        print("total number of equal predictions: {0}/{1}".format(present_count,
+                                                                  len(nl_ested_lbls_for_fed_ested_guest_reprs)))
 
         debug_detail = False
         if True:
@@ -1008,7 +1043,7 @@ class VerticalFederatedTransferLearning(object):
         host_block_indices = None
         estimation_block_size = None
 
-        early_stopping = EarlyStoppingCheckPoint(monitor="all_acc", epoch_patience=3, file_path=training_info_file_name)
+        early_stopping = EarlyStoppingCheckPoint(monitor="fscore", epoch_patience=5, file_path=training_info_file_name)
         early_stopping.set_model(self)
         early_stopping.on_train_begin()
 
@@ -1025,12 +1060,15 @@ class VerticalFederatedTransferLearning(object):
         start_time = time.time()
         epoch = self.model_param.epoch
         init = tf.compat.v1.global_variables_initializer()
-        gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0")
+        gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
+        # gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0,1,2,3")
         with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options)) as sess:
+        # with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto()) as sess:
             self.vftl_guest.set_session(sess)
             self.vftl_host.set_session(sess)
             self.fed_lr.set_session(sess)
             self.guest_lr.set_session(sess)
+            self.host_lr.set_session(sess)
 
             sess.run(init)
 
@@ -1232,12 +1270,12 @@ class VerticalFederatedTransferLearning(object):
 
                         print("=" * 100)
                         print(f"epoch:{i}, iteration:{iteration}")
-                        print("[INFO] fscore: all, fed_guest, only_guest, host", all_fscore, g_fed_fscore_mean,
-                              g_only_fscore_mean, h_fscore_mean)
-                        print("[INFO] acc: all, fed_guest, only_guest, host", all_acc, g_fed_acc_mean, g_only_acc_mean,
-                              h_acc_mean)
-                        print("[INFO] auc: all, fed_guest, only_guest, host", all_auc, g_fed_auc_mean, g_only_auc_mean,
-                              h_auc_mean)
+                        print("[INFO] fscore: all, fed_guest, only_guest, host - {0:0.4f},{1:0.4f},{2:0.4f},{3:0.4f}"
+                              .format(all_fscore, g_fed_fscore_mean, g_only_fscore_mean, h_fscore_mean))
+                        print("[INFO] acc: all, fed_guest, only_guest, host - {0:0.4f},{1:0.4f},{2:0.4f},{3:0.4f}"
+                              .format(all_acc, g_fed_acc_mean, g_only_acc_mean, h_acc_mean))
+                        print("[INFO] auc: all, fed_guest, only_guest, host - {0:0.4f},{1:0.4f},{2:0.4f},{3:0.4f}"
+                              .format(all_auc, g_fed_auc_mean, g_only_auc_mean, h_auc_mean))
                         print("=" * 100)
 
                         # ave_fscore = (all_fscore + g_fed_fscore_mean + h_fscore_mean) / 3
@@ -1262,8 +1300,8 @@ class VerticalFederatedTransferLearning(object):
                     break
 
         end_time = time.time()
-        print(f"training time (s):{end_time - start_time}")
-        print(f"stopped epoch:{early_stopping.stopped_epoch}, batch:{early_stopping.stopped_batch}")
+        print("training time (s):", end_time - start_time)
+        print("stopped epoch, batch:", early_stopping.stopped_epoch, early_stopping.stopped_batch)
         early_stopping.print_log_of_best_result()
         # series_plot(losses=loss_list, fscores=all_fscore_list, aucs=all_acc_list)
         return early_stopping.get_log_info(), loss_list

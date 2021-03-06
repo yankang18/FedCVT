@@ -235,12 +235,14 @@ class AttentionBasedRepresentationEstimator(object):
 
         def body(i, j, row):
             print("-------> iter {0}".format(j))
-            reprs = reprs_w_candidate_labels[j, :-2 * n_class]
+            reprs = reprs_w_candidate_labels[j, :-3 * n_class]
 
             # fetch fed labels
             condidate_lbl_1 = reprs_w_candidate_labels[j, -n_class:]
             # fetch guest_lr labels
             condidate_lbl_2 = reprs_w_candidate_labels[j, -2 * n_class:-n_class]
+            # fetch host_lr labels
+            condidate_lbl_3 = reprs_w_candidate_labels[j, -3 * n_class:- 2 * n_class]
 
             # print("reprs", reprs)
             # print("condidate_lbl_1", condidate_lbl_1)
@@ -248,21 +250,23 @@ class AttentionBasedRepresentationEstimator(object):
 
             index_1 = tf.argmax(input=condidate_lbl_1)
             index_2 = tf.argmax(input=condidate_lbl_2)
+            index_3 = tf.argmax(input=condidate_lbl_3)
 
-            prob_1 = condidate_lbl_1[index_1]
-            prob_2 = condidate_lbl_2[index_2]
+            is_same_class_1 = tf.math.equal(index_1, index_2)
+            is_same_class_2 = tf.math.equal(index_2, index_3)
 
-            is_same_class = tf.math.equal(index_1, index_2)
-            is_beyond_threshold = tf.math.logical_and(tf.math.greater(prob_1, fed_label_upper_bound),
-                                                      tf.math.greater(prob_2, host_label_upper_bound))
-            to_gather = tf.math.logical_and(is_same_class, is_beyond_threshold)
-
+            # prob_1 = condidate_lbl_1[index_1]
+            # prob_2 = condidate_lbl_2[index_2]
+            # prob_3 = condidate_lbl_3[index_3]
+            # is_beyond_threshold = tf.math.logical_and(tf.math.greater(prob_1, fed_label_upper_bound),
+            #                                           tf.math.greater(prob_2, host_label_upper_bound))
+            # to_gather = tf.math.logical_and(is_same_class, is_beyond_threshold)
+            to_gather = tf.math.logical_and(is_same_class_1, is_same_class_2)
             def f1():
                 # selected
                 print("---> f1:selected")
 
                 a_reprs = tf.expand_dims(reprs, axis=0)
-                print("a_reprs:", a_reprs)
                 fed_condidate_lbl = reprs_w_candidate_labels[j, -n_class:]
                 a_condidate_lbl_1 = tf.expand_dims(fed_condidate_lbl, axis=0)
                 a_condidate_lbl_1 = sharpen(a_condidate_lbl_1, temperature=0.1)

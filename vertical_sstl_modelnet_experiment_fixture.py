@@ -1,3 +1,4 @@
+import os
 import time
 
 import numpy as np
@@ -10,7 +11,7 @@ from vertical_semi_supervised_transfer_learning import VerticalFederatedTransfer
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
 
-
+os.environ['CUDA_VISIBLE_DEVICES']='-1'
 def get_timestamp():
     local_time = time.localtime(time.time())
     timestamp = time.strftime("%Y%m%d%H%M%S", local_time)
@@ -43,9 +44,9 @@ class ExpandingVFTLGuestConstructor(object):
         overlap_indices = self.fed_model_param.overlap_indices
         non_overlap_indices = self.fed_model_param.non_overlap_indices
 
-        num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
-        guest_non_overlap_indices = non_overlap_indices[:num_guest_nonoverlap_samples]
-        # guest_non_overlap_indices = non_overlap_indices
+        # num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
+        # guest_non_overlap_indices = non_overlap_indices[:num_guest_nonoverlap_samples]
+        guest_non_overlap_indices = non_overlap_indices
         guest_all_indices = np.concatenate([overlap_indices, guest_non_overlap_indices])
         print("[DEBUG] host overlap_indices:", overlap_indices.shape, overlap_indices.shape)
         print("[DEBUG] guest all_indices:", guest_all_indices.shape, guest_all_indices.shape)
@@ -90,11 +91,11 @@ class ExpandingVFTLHostConstructor(object):
         overlap_indices = self.fed_model_param.overlap_indices
         non_overlap_indices = self.fed_model_param.non_overlap_indices
 
-        num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
-        num_host_nonoverlap_samples = self.fed_model_param.num_host_nonoverlap_samples
-        host_non_overlap_indices = non_overlap_indices[num_guest_nonoverlap_samples:
-                                                       num_guest_nonoverlap_samples + num_host_nonoverlap_samples]
-        # host_non_overlap_indices = non_overlap_indices
+        # num_guest_nonoverlap_samples = self.fed_model_param.num_guest_nonoverlap_samples
+        # num_host_nonoverlap_samples = self.fed_model_param.num_host_nonoverlap_samples
+        # host_non_overlap_indices = non_overlap_indices[num_guest_nonoverlap_samples:
+        #                                                num_guest_nonoverlap_samples + num_host_nonoverlap_samples]
+        host_non_overlap_indices = non_overlap_indices
         host_all_indices = np.concatenate([overlap_indices, host_non_overlap_indices])
         print("[DEBUG] host overlap_indices:", overlap_indices.shape, overlap_indices.shape)
         print("[DEBUG] host all_indices:", host_all_indices.shape, host_all_indices.shape)
@@ -210,8 +211,8 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           guest_input_dim=guest_input_dim,
                                           using_block_idx=False,
                                           learning_rate=learning_rate,
-                                          fed_reg_lambda=0.0001,
-                                          guest_reg_lambda=0.0001,
+                                          fed_reg_lambda=0.001,
+                                          guest_reg_lambda=0.0,
                                           loss_weight_dict=loss_weight_dict,
                                           overlap_indices=overlap_indices,
                                           non_overlap_indices=non_overlap_indices,
@@ -227,10 +228,10 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           all_sample_block_size=estimation_block_size,
                                           label_prob_sharpen_temperature=0.1,
                                           sharpen_temperature=0.1,
-                                          fed_label_prob_threshold=0.5,
-                                          host_label_prob_threshold=0.25,
+                                          fed_label_prob_threshold=0.4,
+                                          host_label_prob_threshold=0.15,
                                           training_info_file_name=training_info_file_name,
-                                          valid_iteration_interval=6)
+                                          valid_iteration_interval=5)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param,
@@ -267,25 +268,25 @@ if __name__ == "__main__":
     print(X_guest_train[0].shape)
     print(X_host_train[0].shape)
     print(Y_train[0].shape)
+
     #
     # Start training
     #
-    epoch = 30
+    epoch = 25
     estimation_block_size = 5000
     overlap_sample_batch_size = 128
     non_overlap_sample_batch_size = 256
 
-    num_overlap_list = [500]
-    lambda_dis_shared_reprs = [0.1]
+    num_overlap_list = [250]
+    lambda_dis_shared_reprs = [0.01]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.01]
     lambda_host_dis_ested_lbls_vs_true_lbls = [100]
-    lambda_dis_ested_reprs_vs_true_reprs = [0.01]
-    lambda_host_dist_two_ested_lbls = [0.01]
+    lambda_dis_ested_reprs_vs_true_reprs = [0.1]
+    lambda_host_dist_two_ested_lbls = [0.1]
     learning_rate = [0.001]
 
     file_folder = "training_log_info/"
-    # timestamp = get_timestamp()
-    # file_name = file_folder + "modelnet_" + timestamp + ".csv"
+    timestamp = get_timestamp()
 
     # lambda for auxiliary losses, which include:
     # (1) loss for minimizing distance between shared representations between host and guest
@@ -296,7 +297,6 @@ if __name__ == "__main__":
     # (6) loss for minimizing distance between estimated guest overlap representation and true guest representation
     # (7) loss for minimizing distance between estimated host overlap representation and true host representation
     # (8) loss for minimizing distance between shared-repr-estimated host label and uniq-repr-estimated host label
-    timestamp = get_timestamp()
     hyperparameter_dict = dict()
     for n_ol in num_overlap_list:
         for lbda_0 in learning_rate:
@@ -305,8 +305,7 @@ if __name__ == "__main__":
                     for lbda_3 in lambda_host_dis_ested_lbls_vs_true_lbls:
                         for lbda_4 in lambda_dis_ested_reprs_vs_true_reprs:
                             for lbda_5 in lambda_host_dist_two_ested_lbls:
-
-                                file_name = file_folder + "modelnet_" + str(n_ol) + "_" + timestamp + ".csv"
+                                file_name = file_folder + "modelnet_" + str(n_ol) + "_" + timestamp
 
                                 hyperparameter_dict["learning_rate"] = lbda_0
                                 hyperparameter_dict["lambda_dist_shared_reprs"] = lbda_1
