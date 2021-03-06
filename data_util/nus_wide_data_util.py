@@ -3,16 +3,15 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.utils import shuffle
-from sklearn.preprocessing import StandardScaler, Normalizer
 
-# you may need to put the correct data directory here.
+# you need to put the data into following directory.
 all_label_path = "NUS_WIDE/Groundtruth/AllLabels"
 label_path = "NUS_WIDE/Groundtruth/TrainTestLabels/"
 image_features_path = "NUS_WIDE/NUS_WID_Low_Level_Features/Low_Level_Features"
 text_tag_path = "NUS_WIDE/NUS_WID_Tags/"
 
 
-def get_top_k_labels(data_dir, top_k=5):
+def retrieve_top_k_labels(data_dir, top_k=10):
     """
         retrieve top k labels that occur most in all samples.
 
@@ -28,14 +27,13 @@ def get_top_k_labels(data_dir, top_k=5):
     label_counts = {}
     for filename in os.listdir(os.path.join(data_dir, all_label_path)):
         file = os.path.join(data_dir, all_label_path, filename)
-        print("file:", file)
+        print(f"[INFO] load file:{file}")
         if os.path.isfile(file):
             label = file[:-4].split("_")[-1]
             df = pd.read_csv(os.path.join(file))
             df.columns = ['label']
             label_counts[label] = (df[df['label'] == 1].shape[0])
     label_counts = sorted(label_counts.items(), key=lambda x: x[1], reverse=True)
-    print("label_counts:", label_counts)
     selected = [(k, v) for (k, v) in label_counts[:top_k]]
     return selected
 
@@ -63,20 +61,18 @@ def get_labeled_data(data_dir, selected_label, n_samples, dtype="Train"):
         df.columns = [label]
         dfs.append(df)
     data_labels = pd.concat(dfs, axis=1)
-    # print("[DEBUG] labels shape: {}".format(data_labels.shape))
+
     if len(selected_label) > 1:
-        # only select samples whose labels are in the selected_label list
         selected_labels = data_labels[data_labels.sum(axis=1) == 1]
     else:
         selected_labels = data_labels
-    # print("[DEBUG] selected labels shape: {0}".format(selected_labels.shape))
 
     dfs = []
     for file in os.listdir(os.path.join(data_dir, image_features_path)):
         if file.startswith("_".join([dtype, "Normalized"])):
             df = pd.read_csv(os.path.join(data_dir, image_features_path, file), header=None, sep=" ")
             df.dropna(axis=1, inplace=True)
-            print(f"[INFO] image feature ({file}) with ({len(df.columns)}) dimension.")
+            print(f"[INFO] load image feature ({file}) with ({len(df.columns)}) dimension.")
             dfs.append(df)
     all_image_features = pd.concat(dfs, axis=1)
     selected_image_features = all_image_features.loc[selected_labels.index]
@@ -84,10 +80,8 @@ def get_labeled_data(data_dir, selected_label, n_samples, dtype="Train"):
     file = "_".join([dtype, "Tags1k"]) + ".dat"
     all_text_features = pd.read_csv(os.path.join(data_dir, text_tag_path, file), header=None, sep="\t")
     all_text_features.dropna(axis=1, inplace=True)
-    print(f"[INFO] text feature ({file}) with ({len(all_text_features.columns)}) dimension.")
+    print(f"[INFO] load text feature ({file}) with ({len(all_text_features.columns)}) dimension.")
     selected_text_features = all_text_features.loc[selected_labels.index]
-
-    print(f"[INFO] image data shape:{selected_image_features.shape}, text data shape:{selected_text_features.shape}")
 
     if n_samples is None:
         return selected_image_features.values[:], selected_text_features.values[:], selected_labels.values[:]
@@ -138,9 +132,9 @@ class TwoPartyNusWideDataLoader(object):
                 f"Multi-classification does not support the number of classes smaller than or equal to {len(target_labels)}")
 
         if target_labels is None:
-            target_labels = get_top_k_labels(data_dir, top_k=self.binary_top_k_classes)
+            target_labels = retrieve_top_k_labels(data_dir, top_k=self.binary_top_k_classes)
 
-        print(f"[INFO] start loading data with labels:{target_labels} for multi-classification.")
+        print(f"[INFO] load data with labels:{target_labels} for multi-classification.")
         image, text, labels = get_labeled_data(data_dir=data_dir,
                                                selected_label=target_labels,
                                                n_samples=num_samples,
@@ -153,10 +147,10 @@ class TwoPartyNusWideDataLoader(object):
             raise Exception("the label list must not be None or empty")
         elif len(target_labels) == 1:
             """
-            If only one target label is set, then this target label will be treated as the positive label 
+            if only one target label is set, then this target label will be treated as the positive label 
             and all other labels, which are top K labels, will be treated as negative labels.
             """
-            top_k_labels = get_top_k_labels(data_dir, top_k=self.binary_top_k_classes)
+            top_k_labels = retrieve_top_k_labels(data_dir, top_k=self.binary_top_k_classes)
             if target_labels[0] in top_k_labels:
                 top_k_labels.remove(target_labels[0])
                 selected_labels = target_labels + top_k_labels
@@ -167,9 +161,9 @@ class TwoPartyNusWideDataLoader(object):
             selected_labels = target_labels
         else:
             raise Exception(
-                f"Binary classification does not support {len(target_labels)} # of labels, which are {target_labels}.")
+                f"binary classification does not support {len(target_labels)} # of labels, which are {target_labels}.")
 
-        print(f"[INFO] start loading data with labels:{selected_labels[0:1]} vs {selected_labels[1:]} "
+        print(f"[INFO] load data with labels:{selected_labels[0:1]} vs {selected_labels[1:]} "
               f"for binary-classification.")
 
         image, text, labels = get_labeled_data(data_dir=data_dir,
@@ -177,6 +171,7 @@ class TwoPartyNusWideDataLoader(object):
                                                n_samples=num_samples,
                                                dtype=dtype)
 
+        # change to binary labels
         binary_labels = []
         pos_count = 0
         neg_count = 0
@@ -193,9 +188,3 @@ class TwoPartyNusWideDataLoader(object):
         labels = np.array(binary_labels)
         image, text, labels = shuffle(image, text, labels)
         return image, text, labels
-
-
-if __name__ == "__main__":
-    file_dir = "../../../data/"
-    kkk = get_top_k_labels(file_dir, top_k=20)
-    print(kkk)
