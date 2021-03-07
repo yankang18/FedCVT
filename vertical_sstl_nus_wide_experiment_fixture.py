@@ -223,7 +223,7 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                           overlap_sample_batch_num=num_overlap,
                                           all_sample_block_size=estimation_block_size,
-                                          label_prob_sharpen_temperature=0.4,
+                                          label_prob_sharpen_temperature=0.5,
                                           sharpen_temperature=sharpen_temperature,
                                           fed_label_prob_threshold=0.6,
                                           host_label_prob_threshold=0.4,
@@ -316,19 +316,19 @@ if __name__ == "__main__":
     #
 
     epoch = 30
-    estimation_block_size = 5000
-    overlap_sample_batch_size = 256
-    non_overlap_sample_batch_size = 512
+    estimation_block_size = 4000
+    overlap_sample_batch_size = 128
+    non_overlap_sample_batch_size = 256
     sharpen_temperature = 0.1
 
     # num_overlap = 500
-    num_overlap_list = [2000]
+    num_overlap_list = [1000]
     lambda_dis_shared_reprs = [0.01]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.01]
     lambda_host_dis_ested_lbls_vs_true_lbls = [100]
     lambda_dis_ested_reprs_vs_true_reprs = [0.01]
     lambda_host_dist_two_ested_lbls = [0.01]
-    learning_rate = [0.01]
+    learning_rate = [0.005]
 
     file_folder = "training_log_info/"
     timestamp = get_timestamp()

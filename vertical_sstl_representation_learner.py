@@ -12,7 +12,8 @@ def compute_queries_keys_sim(queries, keys, Wqk=None):
         return tf.matmul(queries, tf.transpose(a=keys)) / tf.sqrt(tf.cast(tf.shape(input=keys)[1], dtype=tf.float32))
     else:
         trans_queries = tf.matmul(queries, Wqk)
-        return tf.matmul(trans_queries, tf.transpose(a=keys)) / tf.sqrt(tf.cast(tf.shape(input=keys)[1], dtype=tf.float32))
+        return tf.matmul(trans_queries, tf.transpose(a=keys)) / tf.sqrt(
+            tf.cast(tf.shape(input=keys)[1], dtype=tf.float32))
 
 
 def softmax_with_sharpening(matrix, sharpen_temperature=None):
@@ -169,61 +170,11 @@ class AttentionBasedRepresentationEstimator(object):
         reprs = tf.concat([uniq_reprs, comm_reprs], axis=1)
         return reprs, combine_soft_lbls, uniq_lbls, comm_lbls
 
-    # def select_reprs_for_biclass(self, reprs_w_condidate_labels, upper_bound=0.9, lower_bound=0.1):
-    #     pos_label = tf.constant(1, dtype=tf.float32)
-    #     neg_label = tf.constant(0, dtype=tf.float32)
-    #
-    #     dynamic_array = tensor_array_ops.TensorArray(
-    #         dtype=tf.float32,
-    #         size=0,
-    #         dynamic_size=True,
-    #         clear_after_read=False)
-    #
-    #     def cond(i, j, row):
-    #         return j < tf.shape(input=reprs_w_condidate_labels)[0]
-    #
-    #     def body(i, j, row):
-    #         condidate_lbl_1 = reprs_w_condidate_labels[j, -1]
-    #         condidate_lbl_2 = reprs_w_condidate_labels[j, -2]
-    #
-    #         # comb_lbl = (condidate_lbl_1 + condidate_lbl_2) / 2
-    #
-    #         to_gather = tf.math.logical_or(tf.math.logical_and(tf.math.greater(condidate_lbl_1, upper_bound),
-    #                                                            tf.math.greater(condidate_lbl_2, upper_bound)),
-    #                                        tf.math.logical_and(tf.math.less_equal(condidate_lbl_1, lower_bound),
-    #                                                            tf.math.less_equal(condidate_lbl_2, lower_bound)))
-    #
-    #         # print("comb_lbl:", comb_lbl)
-    #         # print("to_gather:", to_gather)
-    #
-    #         def f1():
-    #             temp = tf.expand_dims(reprs_w_condidate_labels[j, :], axis=0)
-    #             # temp = tf.expand_dims(reprs_w_condidate_labels[i, :], axis=0)
-    #             print("temp:", temp)
-    #             print("reprs", row)
-    #             row_update = row.write(i, temp)
-    #             return i + 1, j + 1, row_update
-    #
-    #         def f2():
-    #             return i, j + 1, row
-    #
-    #         i, j, row_update = tf.cond(pred=to_gather, true_fn=f1, false_fn=f2)
-    #         return [i, j, row_update]
-    #
-    #     _, _, list_vals = tf.while_loop(cond=cond, body=body, loop_vars=[0, 0, dynamic_array])
-    #
-    #     reprs_w_labels = list_vals.concat()
-    #     reprs = reprs_w_labels[:, :-2]
-    #     ave_labels = (reprs_w_labels[:, -1] + reprs_w_labels[:, -2]) / 2
-    #     hard_labels = tf.map_fn(lambda lbl: tf.cond(pred=lbl > 0.5, true_fn=lambda: pos_label, false_fn=lambda: neg_label),
-    #                             ave_labels, parallel_iterations=200)
-    #     return reprs, tf.expand_dims(hard_labels, axis=1)
-
     def select_reprs_for_multiclass(self,
                                     reprs_w_candidate_labels,
                                     n_class,
                                     fed_label_upper_bound=0.5,
-                                    host_label_upper_bound=0.5):
+                                    guest_label_upper_bound=0.5):
         dynamic_array = tensor_array_ops.TensorArray(
             dtype=tf.float32,
             size=0,
@@ -255,13 +206,14 @@ class AttentionBasedRepresentationEstimator(object):
             is_same_class_1 = tf.math.equal(index_1, index_2)
             is_same_class_2 = tf.math.equal(index_2, index_3)
 
-            # prob_1 = condidate_lbl_1[index_1]
-            # prob_2 = condidate_lbl_2[index_2]
+            prob_1 = condidate_lbl_1[index_1]
+            prob_2 = condidate_lbl_2[index_2]
             # prob_3 = condidate_lbl_3[index_3]
-            # is_beyond_threshold = tf.math.logical_and(tf.math.greater(prob_1, fed_label_upper_bound),
-            #                                           tf.math.greater(prob_2, host_label_upper_bound))
-            # to_gather = tf.math.logical_and(is_same_class, is_beyond_threshold)
-            to_gather = tf.math.logical_and(is_same_class_1, is_same_class_2)
+            is_beyond_threshold = tf.math.logical_and(tf.math.greater(prob_1, fed_label_upper_bound),
+                                                      tf.math.greater(prob_2, guest_label_upper_bound))
+            is_same_class = tf.math.logical_and(is_same_class_1, is_same_class_2)
+            to_gather = tf.math.logical_and(is_beyond_threshold, is_same_class)
+
             def f1():
                 # selected
                 print("---> f1:selected")
