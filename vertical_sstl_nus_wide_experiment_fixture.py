@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from models.autoencoder import Autoencoder
 from data_util.nus_wide_data_util import TwoPartyNusWideDataLoader
-from expanding_vertical_transfer_learning_param import PartyModelParam, FederatedModelParam
+from param import PartyModelParam, FederatedModelParam
 from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
 from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator

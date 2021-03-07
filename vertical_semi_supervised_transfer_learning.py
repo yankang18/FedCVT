@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score, roc_auc_score
 
-from expanding_vertical_transfer_learning_param import FederatedModelParam
+from param import FederatedModelParam
 from models.softmax_regression import LogisticRegression
 from models.regularization import EarlyStoppingCheckPoint
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost
@@ -270,15 +270,6 @@ class VerticalFederatedTransferLearning(object):
             Yg_all=Y_all_for_est,
             sharpen_tempature=sharpen_temp,
             W_hg=W_hg)
-        # self.uniq_lbls, self.comm_lbls = self.repr_estimator.estimate_unique_comm_labels_for_host_party(
-        #     Uh_comm=Uh_ol_ul_comm,
-        #     Uh_uniq=Uh_ol_ul_uniq,
-        #     Uh_overlap_uniq=Uh_overlap_uniq,
-        #     Ug_all_comm=Ug_all_comm,
-        #     Yg_overlap=self.Y_overlap_for_est,
-        #     Yg_all=Y_all_for_est,
-        #     sharpen_tempature=sharpen_temp,
-        #     W_hg=W_hg)
 
         # estimate overlap feature representations on host side for guest party for minimizing alignment loss
         Uh_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(

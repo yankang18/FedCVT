@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 from models.autoencoder import FeatureExtractor
-from expanding_vertical_transfer_learning_param import PartyModelParam
+from param import PartyModelParam
 
 
 def load_data_block(block_file_full_path, block_id):
