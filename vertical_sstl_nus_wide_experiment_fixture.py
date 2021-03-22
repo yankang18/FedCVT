@@ -120,7 +120,8 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                    non_overlap_sample_batch_size,
                    estimation_block_size,
                    training_info_file_name,
-                   sharpen_temperature):
+                   sharpen_temperature,
+                   is_hetero_reprs):
 
     print("############# Data Info ##############")
     print("X_guest_train shape", X_guest_train.shape)
@@ -156,9 +157,17 @@ def run_experiment(X_guest_train, X_host_train, y_train,
     print("non_overlap_indices:\n", non_overlap_indices, len(set(non_overlap_indices)))
 
     combine_axis = 1
-    guest_hidden_dim = 32
-    host_hidden_dim = 32
+    guest_hidden_dim = 48
+    host_hidden_dim = 48
     num_class = 10
+
+    label_prob_sharpen_temperature = 0.5
+    fed_label_prob_threshold = 0.6
+    host_label_prob_threshold = 0.5
+
+    # label_prob_sharpen_temperature = 0.5
+    # fed_label_prob_threshold = 1.0
+    # host_label_prob_threshold = 1.0
 
     guest_model_param = PartyModelParam(data_folder=None,
                                         apply_dropout=False,
@@ -171,9 +180,9 @@ def run_experiment(X_guest_train, X_host_train, y_train,
 
     print("combine_axis:", combine_axis)
     if combine_axis == 0:
-        input_dim = host_hidden_dim + guest_hidden_dim
+        fed_input_dim = host_hidden_dim + guest_hidden_dim
     else:
-        input_dim = 2 * (host_hidden_dim + guest_hidden_dim)
+        fed_input_dim = 2 * (host_hidden_dim + guest_hidden_dim)
 
     parallel_iterations = 100
 
@@ -204,11 +213,13 @@ def run_experiment(X_guest_train, X_host_train, y_train,
 
     print("* hyper-parameter_dict :{0}".format(hyperparameter_dict))
     print("* loss_weight_dict: {0}".format(loss_weight_dict))
-    fed_model_param = FederatedModelParam(fed_input_dim=input_dim,
-                                          guest_input_dim=int(input_dim / 2),
+    fed_model_param = FederatedModelParam(fed_input_dim=fed_input_dim,
+                                          guest_input_dim=guest_hidden_dim * 2,
+                                          host_input_dim=host_hidden_dim * 2,
+                                          is_hetero_repr=is_hetero_reprs,
                                           using_block_idx=False,
                                           learning_rate=learning_rate,
-                                          fed_reg_lambda=0.001,
+                                          fed_reg_lambda=0.0,
                                           guest_reg_lambda=0.0,
                                           loss_weight_dict=loss_weight_dict,
                                           overlap_indices=overlap_indices,
@@ -223,12 +234,12 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                           overlap_sample_batch_num=num_overlap,
                                           all_sample_block_size=estimation_block_size,
-                                          label_prob_sharpen_temperature=0.5,
+                                          label_prob_sharpen_temperature=label_prob_sharpen_temperature,
                                           sharpen_temperature=sharpen_temperature,
-                                          fed_label_prob_threshold=0.6,
-                                          host_label_prob_threshold=0.4,
+                                          fed_label_prob_threshold=fed_label_prob_threshold,
+                                          host_label_prob_threshold=host_label_prob_threshold,
                                           training_info_file_name=training_info_file_name,
-                                          valid_iteration_interval=5)
+                                          valid_iteration_interval=3)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param,
@@ -316,19 +327,26 @@ if __name__ == "__main__":
     #
 
     epoch = 30
-    estimation_block_size = 4000
+    estimation_block_size = 5000
     overlap_sample_batch_size = 128
-    non_overlap_sample_batch_size = 256
-    sharpen_temperature = 0.1
+    non_overlap_sample_batch_size = 128
+    sharpen_temperature = 0.5
+    is_hetero_reprs = False
 
     # num_overlap = 500
-    num_overlap_list = [1000]
-    lambda_dis_shared_reprs = [0.01]
-    lambda_sim_shared_reprs_vs_uniq_reprs = [0.01]
-    lambda_host_dis_ested_lbls_vs_true_lbls = [100]
-    lambda_dis_ested_reprs_vs_true_reprs = [0.01]
+    # lambda_dis_shared_reprs = [0.1]
+    # lambda_sim_shared_reprs_vs_uniq_reprs = [0.1]
+    # lambda_host_dis_ested_lbls_vs_true_lbls = [100]
+    # lambda_dis_ested_reprs_vs_true_reprs = [0.1]
+    # lambda_host_dist_two_ested_lbls = [0.01]
+    # learning_rate = [0.01]
+    num_overlap_list = [500]
+    lambda_dis_shared_reprs = [0.1]
+    lambda_sim_shared_reprs_vs_uniq_reprs = [0.1]
+    lambda_host_dis_ested_lbls_vs_true_lbls = [1000]
+    lambda_dis_ested_reprs_vs_true_reprs = [0.1]
     lambda_host_dist_two_ested_lbls = [0.01]
-    learning_rate = [0.005]
+    learning_rate = [0.002]
 
     file_folder = "training_log_info/"
     timestamp = get_timestamp()
@@ -375,4 +393,5 @@ if __name__ == "__main__":
                                                non_overlap_sample_batch_size=non_overlap_sample_batch_size,
                                                estimation_block_size=estimation_block_size,
                                                training_info_file_name=file_name,
-                                               sharpen_temperature=sharpen_temperature)
+                                               sharpen_temperature=sharpen_temperature,
+                                               is_hetero_reprs=is_hetero_reprs)

@@ -15,6 +15,10 @@ from vertical_sstl_representation_learner import AttentionBasedRepresentationEst
 from vertical_sstl_representation_learner import sharpen
 
 
+def transpose(x):
+    return x if x is None else tf.transpose(x)
+
+
 class VerticalFederatedTransferLearning(object):
 
     def __init__(self, vftl_guest: ExpandingVFTLGuest, vftl_host: ExpandingVFTLHost, model_param: FederatedModelParam):
@@ -51,7 +55,7 @@ class VerticalFederatedTransferLearning(object):
     @staticmethod
     def _create_transform_matrix(in_dim, out_dim):
         with tf.compat.v1.variable_scope("transform_matrix"):
-            Wt = tf.compat.v1.get_variable(name="Wt", initializer=tf.random.normal((in_dim, out_dim), dtype=tf.float64))
+            Wt = tf.compat.v1.get_variable(name="Wt", initializer=tf.random.normal((in_dim, out_dim), dtype=tf.float32))
         return Wt
 
     def _do_build_0(self):
@@ -90,13 +94,21 @@ class VerticalFederatedTransferLearning(object):
         label_prob_sharpen_temperature = self.model_param.label_prob_sharpen_temperature
         fed_label_prob_threshold = self.model_param.fed_label_prob_threshold
         host_label_prob_threshold = self.model_param.host_label_prob_threshold
+        is_hetero_repr = self.model_param.is_hetero_repr
 
+        print(f"[INFO] is_hetero_repr:{is_hetero_repr}")
         print(f"[INFO] sharpen temperature:{sharpen_temp}")
         print(f"[INFO] label_prob_sharpen_temperature:{label_prob_sharpen_temperature}")
         print(f"[INFO] fed_label_prob_threshold:{fed_label_prob_threshold}")
         print(f"[INFO] host_label_prob_threshold:{host_label_prob_threshold}")
 
         W_hg = None
+        if is_hetero_repr is True:
+            host_comm_dim = Uh_all_comm.shape[-1]
+            guest_comm_dim = Ug_all_comm.shape[-1]
+            W_hg = self._create_transform_matrix(host_comm_dim, guest_comm_dim)
+            print("Using transform matrix with shape:", W_hg.shape)
+
         Y_overlap = self.vftl_guest.get_Y_overlap()
         Y_guest_non_overlap = self.vftl_guest.get_Y_non_overlap()
 
@@ -111,7 +123,7 @@ class VerticalFederatedTransferLearning(object):
             Uh_overlap_uniq,
             Uh_all_comm,
             sharpen_temperature=sharpen_temp,
-            W_hg=W_hg)
+            W_gh=transpose(W_hg))
         print("Uh_non_overlap_ested_reprs shape", Uh_non_overlap_ested_reprs.shape)
 
         # estimate feature representations and labels of missing samples of guest corresponding
@@ -189,7 +201,7 @@ class VerticalFederatedTransferLearning(object):
             reprs_w_candidate_labels=self.fed_nl_w_ested_guest_reprs_n_candidate_labels,
             n_class=self.n_class,
             fed_label_upper_bound=fed_label_prob_threshold,
-            guest_label_upper_bound=host_label_prob_threshold)
+            host_label_upper_bound=host_label_prob_threshold)
 
         self.num_selected_samples = selected_reprs_w_lbls.size()
         has_selected_samples = selected_reprs_w_lbls.size() > 0
@@ -200,29 +212,39 @@ class VerticalFederatedTransferLearning(object):
             # if have selected representations
             sel_fed_nl_w_guest_ested_reprs_w_labels = selected_reprs_w_lbls.concat()
             sel_fed_nl_w_guest_ested_reprs = sel_fed_nl_w_guest_ested_reprs_w_labels[:, :-self.n_class]
-            labels = sel_fed_nl_w_guest_ested_reprs_w_labels[:, -self.n_class:]
+            sel_labels = sel_fed_nl_w_guest_ested_reprs_w_labels[:, -self.n_class:]
 
             fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs, sel_fed_nl_w_guest_ested_reprs], axis=0)
 
             g_ol_reprs = tf.concat(Ug_overlap, axis=1)
             g_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
-            g_nl_estd_reprs = sel_fed_nl_w_guest_ested_reprs[:, :g_reprs_dim]
-            # g_reprs = tf.concat((g_ol_reprs, g_nl_reprs), axis=0)
-            g_reprs = tf.concat((g_ol_reprs, g_nl_reprs, g_nl_estd_reprs), axis=0)
+            # g_nl_estd_reprs = sel_fed_nl_w_guest_ested_reprs[:, :g_reprs_dim]
+            g_reprs = tf.concat((g_ol_reprs, g_nl_reprs), axis=0)
+            # g_reprs = tf.concat((g_ol_reprs, g_nl_reprs, g_nl_estd_reprs), axis=0)
 
             h_ol_reprs = tf.concat(Uh_overlap, axis=1)
-            h_nl_estd_reprs = tf.concat(Uh_non_overlap_ested_reprs, axis=1)
-            h_nl = sel_fed_nl_w_guest_ested_reprs[:, g_reprs_dim:]
-            h_reprs = tf.concat((h_ol_reprs, h_nl_estd_reprs, h_nl), axis=0)
+            # h_nl_estd_reprs = tf.concat(Uh_non_overlap_ested_reprs, axis=1)
+            # h_nl = sel_fed_nl_w_guest_ested_reprs[:, g_reprs_dim:]
+            # h_reprs = tf.concat((h_ol_reprs, h_nl_estd_reprs, h_nl), axis=0)
 
-            # guest_y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
-            y = tf.concat([Y_overlap, Y_guest_non_overlap, labels], axis=0)
+            guest_y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
+            y = tf.concat([Y_overlap, Y_guest_non_overlap, sel_labels], axis=0)
 
+            return fed_reprs, g_reprs, h_ol_reprs, y, guest_y, Y_overlap
             # return fed_reprs, g_reprs, h_ol_reprs, y, guest_y, Y_overlap
-            return fed_reprs, g_reprs, h_reprs, y, y, y
+            # return fed_reprs, g_reprs, h_reprs, y, y, y
 
         def f2():
             # if have no selected representations
+
+            # 1
+            # fed_reprs = fed_ol_reprs
+            # g_ol_reprs = tf.concat(Ug_overlap, axis=1)
+            # g_reprs = g_ol_reprs
+            #
+            # h_ol_reprs = tf.concat(Uh_overlap, axis=1)
+
+            # 2
             fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs], axis=0)
 
             g_ol_reprs = tf.concat(Ug_overlap, axis=1)
@@ -230,12 +252,16 @@ class VerticalFederatedTransferLearning(object):
             g_reprs = tf.concat((g_ol_reprs, g_nl_reprs), axis=0)
 
             h_ol_reprs = tf.concat(Uh_overlap, axis=1)
+
+            #
             # h_nl_estd_reprs = tf.concat(Uh_non_overlap_ested_reprs, axis=1)
             # h_reprs = tf.concat((h_ol_reprs, h_nl_estd_reprs), axis=0)
 
             y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
 
+            # return fed_reprs, g_reprs, h_ol_reprs, Y_overlap, Y_overlap, Y_overlap
             return fed_reprs, g_reprs, h_ol_reprs, y, y, Y_overlap
+            # return fed_reprs, g_reprs, h_reprs, y, y, y
 
         train_fed_reprs, train_guest_reprs, train_host_reprs, train_fed_y, train_g_y, train_h_y = tf.cond(
             pred=has_selected_samples,
@@ -279,7 +305,7 @@ class VerticalFederatedTransferLearning(object):
             Uh_overlap_uniq,
             Uh_all_comm,
             sharpen_temperature=sharpen_temp,
-            W_hg=W_hg)
+            W_gh=transpose(W_hg))
 
         # estimate overlap feature representations and labels on guest side for host party for minimizing alignment loss
         result_overlap = self.repr_estimator.estimate_guest_reprs_n_lbls_for_host_party(Uh_uniq=Uh_overlap_uniq,
@@ -317,7 +343,9 @@ class VerticalFederatedTransferLearning(object):
         assistant_loss_dict = dict()
 
         # (1) loss for shared representations between host and guest
-        assistant_loss_dict['lambda_dist_shared_reprs'] = self.get_shared_reprs_loss(Ug_overlap_comm, Uh_overlap_comm)
+        assistant_loss_dict['lambda_dist_shared_reprs'] = self.get_shared_reprs_loss(Ug_overlap_comm,
+                                                                                     Uh_overlap_comm,
+                                                                                     W_hg=W_hg)
 
         # (2) (3) loss for orthogonal representation for host and guest respectively
         guest_uniq_reprs_loss, host_uniq_reprs_loss = self.get_orth_reprs_loss(Ug_all_uniq,
@@ -358,7 +386,9 @@ class VerticalFederatedTransferLearning(object):
         fed_input_dim = self.model_param.fed_input_dim
         fed_hidden_dim = self.model_param.fed_hidden_dim
         guest_input_dim = self.model_param.guest_input_dim
+        host_input_dim = self.model_param.host_input_dim
         guest_hidden_dim = self.model_param.guest_hidden_dim
+        host_hidden_dim = self.model_param.host_hidden_dim
         fed_reg_lambda = self.model_param.fed_reg_lambda
         guest_reg_lambda = self.model_param.guest_reg_lamba
         loss_weight_dict = self.model_param.loss_weight_dict
@@ -385,7 +415,7 @@ class VerticalFederatedTransferLearning(object):
         self.guest_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
 
         self.host_lr = LogisticRegression(3)
-        self.host_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
+        self.host_lr.build(input_dim=host_input_dim, n_class=self.n_class, hidden_dim=host_hidden_dim)
 
         train_components, repr_list = self._do_build()
         self.fed_reprs, guest_reprs, host_reprs, self.fed_Y, guest_Y, host_Y, self.loss_dict = train_components
@@ -396,7 +426,7 @@ class VerticalFederatedTransferLearning(object):
         self.guest_lr.set_guest_side_predict_ops(guest_nl_reprs)
 
         self.host_lr.set_ops(learning_rate=learning_rate, reg_lambda=guest_reg_lambda,
-                              tf_X_in=host_reprs, tf_labels_in=host_Y)
+                             tf_X_in=host_reprs, tf_labels_in=host_Y)
         # self.host_lr.set_guest_side_predict_ops(guest_nl_reprs)
 
         self.fed_lr.set_loss_factors(self.loss_dict, loss_weight_dict)
@@ -542,9 +572,12 @@ class VerticalFederatedTransferLearning(object):
                 print("[DEBUG] y_hat_1d_only_guest shape:", y_hat_1d_only_guest.shape)
 
             print("[INFO] fed_guest_res:", fed_guest_res)
-            print("[INFO] fed_fscore : {0}, fed_guest_auc : {1}, fed_guest_acc : {2}".format(fed_fscore, fed_guest_auc, fed_guest_acc))
+            print("[INFO] fed_fscore : {0}, fed_guest_auc : {1}, fed_guest_acc : {2}".format(fed_fscore, fed_guest_auc,
+                                                                                             fed_guest_acc))
             print("[INFO] only_guest_res:", only_guest_res)
-            print("[INFO] only_guest_fscore : {0}, only_guest_auc : {1}, only_guest_acc : {2}".format(only_guest_fscore, only_guest_auc, only_guest_acc))
+            print("[INFO] only_guest_fscore : {0}, only_guest_auc : {1}, only_guest_acc : {2}".format(only_guest_fscore,
+                                                                                                      only_guest_auc,
+                                                                                                      only_guest_acc))
 
             fed_fscore_list.append(fed_fscore)
             fed_acc_list.append(fed_guest_acc)
@@ -675,8 +708,8 @@ class VerticalFederatedTransferLearning(object):
             print("[INFO] att_y_host_res:", att_y_host_res)
             print("[INFO] agg_y_host_res:", agg_y_host_res)
             print("[INFO] fl_y_fscore : {0}, att_y_fscore : {1}, agg_y_fscore : {2}".format(fl_y_fscore,
-                                                                                             att_y_fscore,
-                                                                                             agg_y_fscore))
+                                                                                            att_y_fscore,
+                                                                                            agg_y_fscore))
             print("[INFO] fl_host_auc : {0}, fl_host_acc : {1}".format(fl_host_auc, fl_host_acc))
 
             fscore_list.append(fl_y_fscore)
@@ -764,6 +797,7 @@ class VerticalFederatedTransferLearning(object):
         # print(self.Uh_overlap_comm_temp)
         # print("=======")
 
+        # _, fed_reprs, fed_Y, shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, \
         _, _, _, fed_reprs, fed_Y, shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, \
         ol_uniq_lbl_loss, ol_comm_lbl_loss, \
         guest_repr_dist, host_repr_dist, ested_lbl_dist, regularization_loss, pred_loss, mean_pred_loss, ob_loss, \
@@ -775,8 +809,6 @@ class VerticalFederatedTransferLearning(object):
         Ug_non_overlap_uniq, Uh_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_comm, \
         Ug_overlap_uniq, Uh_overlap_uniq, Ug_overlap_comm, Uh_overlap_comm = sess.run(
             [
-                # self.original_host_nonoverlap_samples_shape,
-                # self.selected_host_nonoverlap_samples_shape,
                 self.fed_lr.e2e_train_op,
                 self.guest_lr.e2e_train_op,
                 self.host_lr.e2e_train_op,
@@ -1086,7 +1118,7 @@ class VerticalFederatedTransferLearning(object):
         gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
         # gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0,1,2,3")
         with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options)) as sess:
-        # with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto()) as sess:
+            # with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto()) as sess:
             self.vftl_guest.set_session(sess)
             self.vftl_host.set_session(sess)
             self.fed_lr.set_session(sess)

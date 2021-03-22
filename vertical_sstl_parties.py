@@ -31,7 +31,7 @@ class ExpandingVFTLParty(object):
     def get_model_parameters(self):
         return self.local_model.get_model_parameters(), self.local_model_prime.get_model_parameters()
 
-    def fetch_feat_reprs(self):
+    def fetch_feat_reprs(self, normalize=True):
         U_all_uniq = self.local_model.get_all_hidden_reprs()
         U_all_comm = self.local_model_prime.get_all_hidden_reprs()
         U_overlap_uniq = self.local_model.get_overlap_hidden_reprs()
@@ -39,12 +39,13 @@ class ExpandingVFTLParty(object):
         U_non_overlap_uniq = self.local_model.get_non_overlap_hidden_reprs()
         U_non_overlap_comm = self.local_model_prime.get_non_overlap_hidden_reprs()
 
-        U_all_uniq = tf.math.l2_normalize(U_all_uniq, axis=1)
-        U_all_comm = tf.math.l2_normalize(U_all_comm, axis=1)
-        U_overlap_uniq = tf.math.l2_normalize(U_overlap_uniq, axis=1)
-        U_overlap_comm = tf.math.l2_normalize(U_overlap_comm, axis=1)
-        U_non_overlap_uniq = tf.math.l2_normalize(U_non_overlap_uniq, axis=1)
-        U_non_overlap_comm = tf.math.l2_normalize(U_non_overlap_comm, axis=1)
+        if normalize:
+            U_all_uniq = tf.math.l2_normalize(U_all_uniq, axis=1)
+            U_all_comm = tf.math.l2_normalize(U_all_comm, axis=1)
+            U_overlap_uniq = tf.math.l2_normalize(U_overlap_uniq, axis=1)
+            U_overlap_comm = tf.math.l2_normalize(U_overlap_comm, axis=1)
+            U_non_overlap_uniq = tf.math.l2_normalize(U_non_overlap_uniq, axis=1)
+            U_non_overlap_comm = tf.math.l2_normalize(U_non_overlap_comm, axis=1)
 
         return (U_all_uniq, U_all_comm), (U_non_overlap_uniq, U_non_overlap_comm), (U_overlap_uniq, U_overlap_comm)
 

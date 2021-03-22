@@ -15,8 +15,9 @@ class PartyModelParam(object):
 
 
 class FederatedModelParam(object):
-    def __init__(self, fed_input_dim, guest_input_dim=None, fed_hidden_dim=None, guest_hidden_dim=None, using_block_idx=True,
-                 num_guest_nonoverlap_samples=None, num_host_nonoverlap_samples=None,
+    def __init__(self, fed_input_dim, guest_input_dim=None, host_input_dim=None,
+                 fed_hidden_dim=None, guest_hidden_dim=None, host_hidden_dim=None,
+                 using_block_idx=True, num_guest_nonoverlap_samples=None, num_host_nonoverlap_samples=None,
                  learning_rate=0.01, fed_reg_lambda=0.01, guest_reg_lambda=0.0, loss_weight_dict=None, overlap_indices=None,
                  non_overlap_indices=None, epoch=50, top_k=3, combine_axis=0, parallel_iterations=10,
                  overlap_sample_batch_size=None, non_overlap_sample_batch_size=None,
@@ -29,7 +30,9 @@ class FederatedModelParam(object):
         self.fed_input_dim = fed_input_dim
         self.fed_hidden_dim = fed_hidden_dim
         self.guest_input_dim = guest_input_dim
+        self.host_input_dim = host_input_dim
         self.guest_hidden_dim = guest_hidden_dim
+        self.host_hidden_dim = host_hidden_dim
         self.fed_reg_lambda = fed_reg_lambda
         self.guest_reg_lamba = guest_reg_lambda
         self.loss_weight_dict = loss_weight_dict

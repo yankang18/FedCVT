@@ -46,7 +46,7 @@ class AttentionBasedRepresentationEstimator(object):
                                             Uh_overlap_uniq,
                                             Uh_all_comm,
                                             sharpen_temperature=0.1,
-                                            W_hg=None):
+                                            W_gh=None):
         """
         Estimate feature representations on the host side for guest party.
 
@@ -56,19 +56,19 @@ class AttentionBasedRepresentationEstimator(object):
         :param Uh_overlap_uniq:
         :param Uh_all_comm:
         :param sharpen_temperature:
-        :param W_hg:
+        :param W_gh:
         :return:
         """
         uniq_reprs = compute_attention(queries=Ug_uniq,
                                        keys=Ug_overlap_uniq,
                                        values=Uh_overlap_uniq,
                                        sharpen_temperature=sharpen_temperature,
-                                       Wqk=W_hg)
+                                       Wqk=None)
         comm_reprs = compute_attention(queries=Ug_comm,
                                        keys=Uh_all_comm,
                                        values=Uh_all_comm,
                                        sharpen_temperature=sharpen_temperature,
-                                       Wqk=W_hg)
+                                       Wqk=W_gh)
         reprs = tf.concat([uniq_reprs, comm_reprs], axis=1)
         return reprs
 
@@ -85,7 +85,7 @@ class AttentionBasedRepresentationEstimator(object):
         softmax_matrix_uniq = compute_softmax_matrix(queries=Uh_uniq,
                                                      keys=Uh_overlap_uniq,
                                                      sharpen_temperature=sharpen_tempature,
-                                                     Wqk=W_hg)
+                                                     Wqk=None)
         softmax_matrix_comm = compute_softmax_matrix(queries=Uh_comm,
                                                      keys=Ug_all_comm,
                                                      sharpen_temperature=sharpen_tempature,
@@ -110,7 +110,7 @@ class AttentionBasedRepresentationEstimator(object):
         softmax_matrix_uniq = compute_softmax_matrix(queries=Uh_uniq,
                                                      keys=Uh_overlap_uniq,
                                                      sharpen_temperature=sharpen_tempature,
-                                                     Wqk=W_hg)
+                                                     Wqk=None)
         softmax_matrix_comm = compute_softmax_matrix(queries=Uh_comm,
                                                      keys=Ug_all_comm,
                                                      sharpen_temperature=sharpen_tempature,
@@ -174,7 +174,7 @@ class AttentionBasedRepresentationEstimator(object):
                                     reprs_w_candidate_labels,
                                     n_class,
                                     fed_label_upper_bound=0.5,
-                                    guest_label_upper_bound=0.5):
+                                    host_label_upper_bound=0.5):
         dynamic_array = tensor_array_ops.TensorArray(
             dtype=tf.float32,
             size=0,
@@ -207,10 +207,10 @@ class AttentionBasedRepresentationEstimator(object):
             is_same_class_2 = tf.math.equal(index_2, index_3)
 
             prob_1 = condidate_lbl_1[index_1]
-            prob_2 = condidate_lbl_2[index_2]
-            # prob_3 = condidate_lbl_3[index_3]
+            # prob_2 = condidate_lbl_2[index_2]
+            prob_3 = condidate_lbl_3[index_3]
             is_beyond_threshold = tf.math.logical_and(tf.math.greater(prob_1, fed_label_upper_bound),
-                                                      tf.math.greater(prob_2, guest_label_upper_bound))
+                                                      tf.math.greater(prob_3, host_label_upper_bound))
             is_same_class = tf.math.logical_and(is_same_class_1, is_same_class_2)
             to_gather = tf.math.logical_and(is_beyond_threshold, is_same_class)
 

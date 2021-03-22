@@ -285,7 +285,7 @@ def run_experiment(X_image, X_text, Y,
     print("X_train shape", X_train.shape)
     print("X_test shape", X_test.shape)
 
-    hidden_dim = [64]
+    hidden_dim = [96]
     valid_data = [X_test, Y_test]
     image_text_log_info = test(X_train=X_train,
                                y_train=y_train,
@@ -380,12 +380,13 @@ if __name__ == "__main__":
     image_text_acc_list = []
     image_text_auc_list = []
 
-    # num_overlapping = 500
-    num_overlapping = X_image.shape[0]
+    num_overlapping = 500
+    # num_overlapping = X_image.shape[0]
     n_class = len(target_label_list)
     batch_size = 256
     learning_rate = 0.01
-    regularization_lambda = 0.001
+    # regularization_lambda = 0.001
+    regularization_lambda = 0.0
     epochs = 50
     num_experiments = 5
     for i in range(num_experiments):

@@ -54,6 +54,10 @@ class Autoencoder(FeatureExtractor):
         self.enc_layer_vars_map = {}
         self.dec_layer_vars_map = {}
 
+        self.lr = None
+        self.input_dim = None
+        self.hidden_dim_list = None
+
     def set_session(self, sess):
         self.sess = sess
 
@@ -68,8 +72,12 @@ class Autoencoder(FeatureExtractor):
         self._build_model()
 
     def _glorot_normal(self, fan_in, fan_out):
-        stddev = np.sqrt(2 / (fan_in + fan_out))
-        return np.random.normal(0, stddev, (fan_in, fan_out))
+        stddev = np.sqrt(2.0 / (fan_in + fan_out))
+        return tf.random.normal(shape=(fan_in, fan_out), mean=0.0, stddev=stddev, dtype=tf.dtypes.float32)
+
+    def _initialize(self, in_dim, out_dim):
+        return tf.random.normal((in_dim, out_dim), dtype=tf.float32)
+        # return self._glorot_normal(in_dim, out_dim)
 
     def _set_variable_initializer(self):
 
@@ -79,19 +87,19 @@ class Autoencoder(FeatureExtractor):
         layer = 0
         for out_dim in self.hidden_dim_list:
             print("out_dim", out_dim)
-            self.enc_layer_vars_initializer_map["We_" + str(layer)] = tf.random.normal((in_dim, out_dim), dtype=tf.float32)
+            self.enc_layer_vars_initializer_map["We_" + str(layer)] = self._initialize(in_dim, out_dim)
             self.enc_layer_vars_initializer_map["be_" + str(layer)] = np.zeros(out_dim).astype(np.float32)
             layer += 1
             in_dim = out_dim
 
         layer = 0
         for out_dim in reversed(self.hidden_dim_list[:-1]):
-            self.dec_layer_vars_initializer_map["Wd_" + str(layer)] = tf.random.normal((in_dim, out_dim), dtype=tf.float32)
+            self.dec_layer_vars_initializer_map["Wd_" + str(layer)] = self._initialize(in_dim, out_dim)
             self.dec_layer_vars_initializer_map["bd_" + str(layer)] = np.zeros(out_dim).astype(np.float32)
             layer += 1
             in_dim = out_dim
 
-        self.dec_layer_vars_initializer_map["Wd_" + str(layer)] = tf.random.normal((in_dim, self.input_dim), dtype=tf.float32)
+        self.dec_layer_vars_initializer_map["Wd_" + str(layer)] = self._initialize(in_dim, self.input_dim)
         self.dec_layer_vars_initializer_map["bd_" + str(layer)] = np.zeros(self.input_dim).astype(np.float32)
 
         # layer = 0
@@ -195,9 +203,11 @@ class Autoencoder(FeatureExtractor):
     def _do_forward_encode(self, X, layer_index):
         We = self.enc_layer_vars_map["We_" + str(layer_index)]
         be = self.enc_layer_vars_map["be_" + str(layer_index)]
+        # return tf.matmul(X, We)
+        # return tf.nn.tanh(tf.matmul(X, We))
         # return tf.matmul(X, We) + be
         # return tf.nn.tanh(tf.matmul(X, We) + be)
-        return tf.nn.leaky_relu(tf.matmul(X, We) + be)
+        return tf.nn.leaky_relu(tf.matmul(X, We)+be)
         # return tf.nn.sigmoid(tf.matmul(X, We))
 
     def _forward_logits(self, X):
