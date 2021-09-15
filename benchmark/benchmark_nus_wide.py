@@ -24,6 +24,12 @@ class BaseModel(object):
     def _get_input_placeholder(self):
         pass
 
+    def _get_guest_input_placeholder(self):
+        pass
+
+    def _get_host_input_placeholder(self):
+        pass
+
     def _get_label_placeholder(self):
         pass
 
@@ -43,7 +49,7 @@ class BaseModel(object):
 
         early_stopping.set_model(self)
 
-        num_labeled_train_samples = X_train.shape[0]
+        num_labeled_train_samples = X_train[0].shape[0]
 
         residual = num_labeled_train_samples % batch_size
         if residual == 0:
@@ -57,7 +63,7 @@ class BaseModel(object):
 
         print("batch_num: {0}".format(batch_num))
 
-        X_val = validation_data[0]
+        X_guest_val, X_host_val = validation_data[0][0], validation_data[0][1]
         y_val = validation_data[1]
 
         early_stopping.on_train_begin()
@@ -80,10 +86,14 @@ class BaseModel(object):
                     batch_i_end = batch_size * batch_i + batch_size
                     # print("batch from {0} to {1}".format(batch_i_start, batch_i_end))
 
-                    X_train_batch_i = X_train[batch_i_start:batch_i_end]
+                    X_train_batch_i_guest = X_train[0][batch_i_start:batch_i_end]
+                    X_train_batch_i_host = X_train[1][batch_i_start:batch_i_end]
                     y_train_batch_i = y_train[batch_i_start:batch_i_end]
 
-                    feed_dictionary = {self._get_input_placeholder(): X_train_batch_i,
+                    # feed_dictionary = {self._get_input_placeholder(): X_train_batch_i,
+                    #                    self._get_label_placeholder(): y_train_batch_i}
+                    feed_dictionary = {self._get_guest_input_placeholder(): X_train_batch_i_guest,
+                                       self._get_host_input_placeholder(): X_train_batch_i_host,
                                        self._get_label_placeholder(): y_train_batch_i}
                     loss, _ = sess.run(fetches=[self._get_loss_op(), self._get_train_op()],
                                        feed_dict=feed_dictionary)
@@ -94,7 +104,9 @@ class BaseModel(object):
 
                     # validation
                     if batch_i % 20 == 0:
-                        feed_dictionary_test = {self._get_input_placeholder(): X_val}
+                        # feed_dictionary_test = {self._get_input_placeholder(): X_val}
+                        feed_dictionary_test = {self._get_guest_input_placeholder(): X_guest_val,
+                                           self._get_host_input_placeholder(): X_host_val}
                         y_pred_one_hot = sess.run(self._get_predict_op(), feed_dict=feed_dictionary_test)
 
                         y_pred_1d = np.argmax(y_pred_one_hot, axis=1)
@@ -138,20 +150,35 @@ class BaseModel(object):
 class BenchmarkNusWideModel(BaseModel):
 
     def __init__(self):
-        self.feature_extractor = None
+        self.feature_extractor_guest = None
+        self.feature_extractor_host = None
         self.logistic_regressor = None
         self.stop_training = False
 
     def save_model(self):
         print("TODO: save model")
 
-    def compile(self, n_class, hidden_dim, input_dim, learning_rate=0.01, regularization_lambda=0.01):
-        self.feature_extractor = Autoencoder(1)
-        self.feature_extractor.build(input_dim=input_dim, hidden_dim_list=hidden_dim, learning_rate=learning_rate)
-        reprs = self.feature_extractor.get_all_hidden_reprs()
+    def compile(self, n_class, guest_hidden_dim, host_hidden_dim, guest_input_dim, host_input_dim, input_dim,
+                learning_rate=0.01,
+                regularization_lambda=0.01):
+        self.feature_extractor_guest = Autoencoder(1)
+        self.feature_extractor_guest.build(input_dim=guest_input_dim, hidden_dim_list=guest_hidden_dim,
+                                           learning_rate=learning_rate)
+        reprs_g = self.feature_extractor_guest.get_all_hidden_reprs()
+
+        self.feature_extractor_host = Autoencoder(2)
+        self.feature_extractor_host.build(input_dim=host_input_dim, hidden_dim_list=host_hidden_dim,
+                                          learning_rate=learning_rate)
+        reprs_h = self.feature_extractor_host.get_all_hidden_reprs()
+
+        if True:
+            reprs_g = tf.math.l2_normalize(reprs_g, axis=1)
+            reprs_h = tf.math.l2_normalize(reprs_h, axis=1)
+
+        reprs = tf.concat([reprs_g, reprs_h], axis=1)
 
         self.logistic_regressor = LogisticRegression(1)
-        self.logistic_regressor.build(input_dim=hidden_dim[-1], n_class=n_class)
+        self.logistic_regressor.build(input_dim=guest_hidden_dim[-1] + host_hidden_dim[-1], n_class=n_class)
         self.logistic_regressor.set_ops(learning_rate=learning_rate, reg_lambda=regularization_lambda, tf_X_in=reprs,
                                         tf_labels_in=None)
 
@@ -159,7 +186,13 @@ class BenchmarkNusWideModel(BaseModel):
         self.logistic_regressor.set_session(session)
 
     def _get_input_placeholder(self):
-        return self.feature_extractor.X_all_in
+        return self.feature_extractor_guest.X_all_in
+
+    def _get_guest_input_placeholder(self):
+        return self.feature_extractor_guest.X_all_in
+
+    def _get_host_input_placeholder(self):
+        return self.feature_extractor_host.X_all_in
 
     def _get_label_placeholder(self):
         return self.logistic_regressor.labels
@@ -192,10 +225,17 @@ def test(X_train, y_train, n_class,
     # learning_rate = 0.01
     # regularization_lambda = 0.001
 
+    guest_train_data, host_train_data = X_train
+    guest_input_dim = guest_train_data.shape[-1]
+    host_input_dim = host_train_data.shape[-1]
+
     model = BenchmarkNusWideModel()
     model.compile(n_class=n_class,
-                  hidden_dim=hidden_dim,
-                  input_dim=X_train.shape[1],
+                  guest_hidden_dim=hidden_dim,
+                  host_hidden_dim=hidden_dim,
+                  guest_input_dim=guest_input_dim,
+                  host_input_dim=host_input_dim,
+                  input_dim=host_input_dim+guest_input_dim,
                   learning_rate=learning_rate,
                   regularization_lambda=regularization_lambda)
 
@@ -279,13 +319,16 @@ def run_experiment(X_image, X_text, Y,
     test host and guest combined
     """
 
-    X_train = np.concatenate((X_image_train, X_text_train), axis=-1)
-    X_test = np.concatenate((X_image_test, X_text_test), axis=-1)
+    # X_train = np.concatenate((X_image_train, X_text_train), axis=-1)
+    # X_test = np.concatenate((X_image_test, X_text_test), axis=-1)
 
-    print("X_train shape", X_train.shape)
-    print("X_test shape", X_test.shape)
+    X_train = (X_image_train, X_text_train)
+    X_test = (X_image_test, X_text_test)
 
-    hidden_dim = [96]
+    # print("X_train shape", X_train.shape)
+    # print("X_test shape", X_test.shape)
+
+    hidden_dim = [192]
     valid_data = [X_test, Y_test]
     image_text_log_info = test(X_train=X_train,
                                y_train=y_train,
@@ -380,11 +423,13 @@ if __name__ == "__main__":
     image_text_acc_list = []
     image_text_auc_list = []
 
-    num_overlapping = 500
-    # num_overlapping = X_image.shape[0]
+    # num_overlapping = 8000
+    # num_overlapping = 250
+
+    num_overlapping = X_image.shape[0] # using all samples
     n_class = len(target_label_list)
-    batch_size = 256
-    learning_rate = 0.01
+    batch_size = 128
+    learning_rate = 0.005
     # regularization_lambda = 0.001
     regularization_lambda = 0.0
     epochs = 50

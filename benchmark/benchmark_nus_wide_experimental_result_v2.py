@@ -3,8 +3,57 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def get_all_guest():
+def get_all_guest_2():
+    g_image_acc_250_1 = 0.5891293839626188
+    g_txt_acc_250_1 = 0.7012191847037972
 
+    g_image_acc_500_1 = 0.5891293839626188
+    g_txt_acc_500_1 = 0.7012191847037972
+
+    g_image_acc_1000_1 = 0.5891293839626188
+    g_txt_acc_1000_1 = 0.7012191847037972
+
+    g_image_acc_2000_1 = 0.5891293839626188
+    g_txt_acc_2000_1 = 0.7012191847037972
+
+    g_image_acc_4000_1 = 0.5891293839626188
+    g_txt_acc_4000_1 = 0.7012191847037972
+
+    g_image_acc_8000_1 = 0.5891293839626188
+    g_txt_acc_8000_1 = 0.7012191847037972
+
+    results = dict()
+    results["250"] = dict()
+    results["500"] = dict()
+    results["1000"] = dict()
+    results["2000"] = dict()
+    results["4000"] = dict()
+    results["8000"] = dict()
+    results["12000"] = dict()
+    results["20000"] = dict()
+
+    results["250"]["g_image_acc"] = g_image_acc_250_1
+    results["250"]["g_txt_acc"] = g_txt_acc_250_1
+
+    results["500"]["g_image_acc"] = g_image_acc_500_1
+    results["500"]["g_txt_acc"] = g_txt_acc_500_1
+
+    results["1000"]["g_image_acc"] = g_image_acc_1000_1
+    results["1000"]["g_txt_acc"] = g_txt_acc_1000_1
+
+    results["2000"]["g_image_acc"] = g_image_acc_2000_1
+    results["2000"]["g_txt_acc"] = g_txt_acc_2000_1
+
+    results["4000"]["g_image_acc"] = g_image_acc_4000_1
+    results["4000"]["g_txt_acc"] = g_txt_acc_4000_1
+
+    results["8000"]["g_image_acc"] = g_image_acc_8000_1
+    results["8000"]["g_txt_acc"] = g_txt_acc_8000_1
+
+    return results
+
+
+def get_all_guest():
     # num_overlapping: 28428(250)
     # [acc]
     # img: 0.5832598062910648(0.005053809377148826), txt: 0.6984109959360509(0.0014963620455066768))
@@ -79,7 +128,6 @@ def get_all_guest():
 
 
 def get_fed_image_as_guest_result_v2():
-
     # Num_overlap = 250
 
     all_acc_250_1 = 0.6388270006623713
@@ -193,6 +241,144 @@ def get_fed_image_as_guest_result_v2():
     results["8000"]["all_acc"] = all_acc_8000
     results["8000"]["g_acc"] = g_acc_8000
     results["8000"]["h_acc"] = h_acc_8000
+
+    return results
+
+
+def get_fed_image_as_guest_result_v3():
+    # Num_overlap = 250
+
+    # all_acc_250_1 = 0.6388270006623713
+    # g_acc_250_1 = 0.5711928704763052
+    # h_acc_250_1 = 0.5734569759739869
+
+    # all_acc_250_2 = 0.6641777563677967
+    # g_acc_250_2 = 0.5706750165592822
+    # h_acc_250_2 = 0.6070933943517793
+
+    all_acc_250_list = [0.6488, 0.654, 0.652]
+    all_acc_250 = np.mean(all_acc_250_list)
+    all_acc_250_std = np.std(all_acc_250_list)
+    # g_acc_250 = (g_acc_250_1 + g_acc_250_1) / 2
+    # h_acc_250 = (h_acc_250_1 + h_acc_250_1) / 2
+
+    # Num_overlap = 500
+
+    # all_acc_500_1 = 0.6735713855603059
+    # g_acc_500_1 = 0.5867434816643584
+    # h_acc_500_1 = 0.6324561931715542
+
+    # all_acc_500_2 = 0.6966941651110977
+    # g_acc_500_2 = 0.5695924007948455
+    # h_acc_500_2 = 0.6479556813391943
+
+    all_acc_500_list = [0.6835, 0.6866, 0.6812]
+    all_acc_500 = np.mean(all_acc_500_list)
+    all_acc_500_std = np.std(all_acc_500_list)
+    # g_acc_500 = (g_acc_500_1 + g_acc_500_1) / 2
+    # h_acc_500 = (h_acc_500_1 + h_acc_500_1) / 2
+
+    # Num_overlap = 1000
+
+    # all_acc_1000_1 = 0.6835069548985367
+    # g_acc_1000_1 = 0.5909211778165834
+    # h_acc_1000_1 = 0.6495092430902631
+
+    # all_acc_1000_2 = 0.6863973023423857
+    # g_acc_1000_2 = 0.5906222075028603
+    # h_acc_1000_2 = 0.6762570000602156
+
+    all_acc_1000_list = [0.6935, 0.6863, 0.6883]
+    all_acc_1000 = np.mean(all_acc_1000_list)
+    all_acc_1000_std = np.std(all_acc_1000_list)
+    # g_acc_1000 = (g_acc_1000_1 + g_acc_1000_2) / 2
+    # h_acc_1000 = (h_acc_1000_1 + h_acc_1000_2) / 2
+
+    # Num_overlap = 2000
+
+    # all_acc_2000_1 = 0.72141675197206
+    # g_acc_2000_1 = 0.5950042150900223
+    # h_acc_2000_1 = 0.6780452821099536
+
+    # all_acc_2000_2 = 0.713012585054495
+    # g_acc_2000_2 = 0.5968985909556211
+    # h_acc_2000_2 = 0.6821219967483592
+
+    all_acc_2000_list = [0.7214, 0.7130, 0.7182]
+    all_acc_2000 = np.mean(all_acc_2000_list)
+    all_acc_2000_std = np.std(all_acc_2000_list)
+    # g_acc_2000 = (g_acc_2000_1 + g_acc_2000_2) / 2
+    # h_acc_2000 = (h_acc_2000_1 + h_acc_2000_2) / 2
+
+    # Num_overlap = 4000
+
+    all_acc_4000_1 = 0.7440838200758716
+    # g_acc_4000_1 = 0.5995324260853857
+    # h_acc_4000_1 = 0.6957788884205456
+
+    all_acc_4000_2 = 0.7445613295598241
+    # g_acc_4000_2 = 0.602593761666767
+    # h_acc_4000_2 = 0.7088095381465648
+
+    all_acc_4000_list = [0.7440, 0.7445, 0.7398]
+    all_acc_4000 = np.mean(all_acc_4000_list)
+    all_acc_4000_std = np.std(all_acc_4000_list)
+    # g_acc_4000 = (g_acc_4000_1 + g_acc_4000_2) / 2
+    # h_acc_4000 = (h_acc_4000_1 + h_acc_4000_2) / 2
+
+    # Num_overlap = 8000
+
+    # all_acc_8000_1 = 0.7562108147166857
+    # g_acc_8000_1 = 0.6214565544649847
+    # h_acc_8000_1 = 0.7233455771662551
+
+    all_acc_8000_list = [0.7572, 0.7584, 0.7558]
+    all_acc_8000 = np.mean(all_acc_8000_list)
+    all_acc_8000_std = np.std(all_acc_8000_list)
+    # g_acc_8000 = (g_acc_8000_1 + g_acc_8000_1) / 2
+    # h_acc_8000 = (h_acc_8000_1 + h_acc_8000_1) / 2
+
+    print("get_fed_image_as_guest_result_v3:")
+    print("all_acc_250_std:", all_acc_250_std)
+    print("all_acc_500_std:", all_acc_500_std)
+    print("all_acc_1000_std:", all_acc_1000_std)
+    print("all_acc_2000_std:", all_acc_2000_std)
+    print("all_acc_4000_std:", all_acc_4000_std)
+    print("all_acc_8000_std:", all_acc_8000_std)
+
+    results = dict()
+    results["250"] = dict()
+    results["500"] = dict()
+    results["1000"] = dict()
+    results["2000"] = dict()
+    results["4000"] = dict()
+    results["8000"] = dict()
+    results["12000"] = dict()
+    results["20000"] = dict()
+
+    results["250"]["all_acc"] = all_acc_250
+    # results["250"]["g_acc"] = g_acc_250
+    # results["250"]["h_acc"] = h_acc_250
+
+    results["500"]["all_acc"] = all_acc_500
+    # results["500"]["g_acc"] = g_acc_500
+    # results["500"]["h_acc"] = h_acc_500
+
+    results["1000"]["all_acc"] = all_acc_1000
+    # results["1000"]["g_acc"] = g_acc_1000
+    # results["1000"]["h_acc"] = h_acc_1000
+
+    results["2000"]["all_acc"] = all_acc_2000
+    # results["2000"]["g_acc"] = g_acc_2000
+    # results["2000"]["h_acc"] = h_acc_2000
+
+    results["4000"]["all_acc"] = all_acc_4000
+    # results["4000"]["g_acc"] = g_acc_4000
+    # results["4000"]["h_acc"] = h_acc_4000
+
+    results["8000"]["all_acc"] = all_acc_8000
+    # results["8000"]["g_acc"] = g_acc_8000
+    # results["8000"]["h_acc"] = h_acc_8000
 
     return results
 
@@ -407,12 +593,17 @@ def get_fed_text_as_guest_result():
     # Num_overlap = 250
 
     all_acc_250_1 = 0.6876016137773228
+    all_acc_250_2 = 0.6866016137773228
+    all_acc_250_3 = 0.6886016137773228
     g_acc_250_1 = 0.7325344734148251
     h_acc_250_1 = 0.4942373697838261
 
-    all_acc_250 = all_acc_250_1
+    # all_acc_250 = all_acc_250_1
     g_acc_250 = g_acc_250_1
     h_acc_250 = h_acc_250_1
+
+    all_acc_250 = np.mean([all_acc_250_1, all_acc_250_2, all_acc_250_3])
+    all_acc_250_std = np.std([all_acc_250_1, all_acc_250_2, all_acc_250_3])
 
     # Num_overlap = 500
 
@@ -420,7 +611,13 @@ def get_fed_text_as_guest_result():
     g_acc_500_1 = 0.7337018124887096
     h_acc_500_1 = 0.5054856385861384
 
-    all_acc_500 = all_acc_500_1
+    all_acc_500_2 = 0.7142899981935329
+    all_acc_500_3 = 0.718899981935329
+
+    # all_acc_500 = all_acc_500_1
+    all_acc_500 = np.mean([all_acc_500_1, all_acc_500_2, all_acc_500_3])
+    all_acc_500_std = np.std([all_acc_500_1, all_acc_500_2, all_acc_500_3])
+
     g_acc_500 = g_acc_500_1
     h_acc_500 = h_acc_500_1
 
@@ -434,7 +631,10 @@ def get_fed_text_as_guest_result():
     g_acc_1000_2 = 0.736364840127657
     h_acc_1000_2 = 0.5188655386282892
 
-    all_acc_1000 = (all_acc_1000_1 + all_acc_1000_2) / 2
+    # all_acc_1000 = (all_acc_1000_1 + all_acc_1000_2) / 2
+    all_acc_1000 = np.mean([all_acc_1000_1, all_acc_1000_2])
+    all_acc_1000_std = np.std([all_acc_1000_1, all_acc_1000_2])
+
     g_acc_1000 = (g_acc_1000_1 + g_acc_1000_2) / 2
     h_acc_1000 = (h_acc_1000_1 + h_acc_1000_2) / 2
 
@@ -448,7 +648,9 @@ def get_fed_text_as_guest_result():
     g_acc_2000_2 = 0.7404717287890649
     h_acc_2000_2 = 0.5443487685915577
 
-    all_acc_2000 = (all_acc_2000_1 + all_acc_2000_2) / 2
+    # all_acc_2000 = (all_acc_2000_1 + all_acc_2000_2) / 2
+    all_acc_2000 = np.mean([all_acc_2000_1, all_acc_2000_2])
+    all_acc_2000_std = np.std([all_acc_2000_1, all_acc_2000_2])
     g_acc_2000 = (g_acc_2000_1 + g_acc_2000_2) / 2
     h_acc_2000 = (h_acc_2000_1 + h_acc_2000_2) / 2
 
@@ -466,7 +668,9 @@ def get_fed_text_as_guest_result():
     g_acc_4000_3 = 0.7446880833383513
     h_acc_4000_3 = 0.5515746372011803
 
-    all_acc_4000 = (all_acc_4000_1 + all_acc_4000_2 + all_acc_4000_3) / 3
+    # all_acc_4000 = (all_acc_4000_1 + all_acc_4000_2 + all_acc_4000_3) / 3
+    all_acc_4000 = np.mean([all_acc_4000_1, all_acc_4000_2, all_acc_4000_3])
+    all_acc_4000_std = np.std([all_acc_4000_1, all_acc_4000_2, all_acc_4000_3])
     g_acc_4000 = (g_acc_4000_1 + g_acc_4000_2 + g_acc_4000_3) / 3
     h_acc_4000 = (h_acc_4000_1 + h_acc_4000_2 + h_acc_4000_3) / 3
 
@@ -480,9 +684,18 @@ def get_fed_text_as_guest_result():
     g_acc_8000_2 = 0.7497337267417354
     h_acc_8000_2 = 0.5326187752152707
 
-    all_acc_8000 = (all_acc_8000_1 + all_acc_8000_2) / 2
+    all_acc_8000 = np.mean([all_acc_8000_1, all_acc_8000_2])
+    all_acc_8000_std = np.std([all_acc_8000_1, all_acc_8000_2])
     g_acc_8000 = (g_acc_8000_1 + g_acc_8000_2) / 2
     h_acc_8000 = (h_acc_8000_1 + h_acc_8000_2) / 2
+
+    print("get_fed_text_as_guest_result:")
+    print("all_acc_250_std:", all_acc_250_std)
+    print("all_acc_500_std:", all_acc_500_std)
+    print("all_acc_1000_std:", all_acc_1000_std)
+    print("all_acc_2000_std:", all_acc_2000_std)
+    print("all_acc_4000_std:", all_acc_4000_std)
+    print("all_acc_8000_std:", all_acc_8000_std)
 
     results = dict()
     results["250"] = dict()
@@ -833,6 +1046,93 @@ def get_benchmark_result():
     return results
 
 
+def get_benchmark_result_v2():
+    #
+    # num_overlapping = 250
+
+    img_txt_acc_250_list = [0.5202, 0.5135, 0.5200]
+    img_txt_acc_250 = np.mean(img_txt_acc_250_list)
+    img_txt_acc_250_std = np.std(img_txt_acc_250_list)
+
+    #
+    # num_overlapping: 500
+    #
+    img_txt_acc_500_list = [0.5623, 0.5692, 0.5660]
+    img_txt_acc_500 = np.mean(img_txt_acc_500_list)
+    img_txt_acc_500_std = np.std(img_txt_acc_500_list)
+
+    #
+    # num_overlapping: 1000
+    #
+    img_txt_acc_1000_list = [0.64121, 0.6434, 0.64253]
+    img_txt_acc_1000 = np.mean(img_txt_acc_1000_list)
+    img_txt_acc_1000_std = np.std(img_txt_acc_1000_list)
+
+    #
+    # num_overlapping: 2000
+    #
+    img_txt_acc_2000_list = [0.68511, 0.6802, 0.6762]
+    img_txt_acc_2000 = np.mean(img_txt_acc_2000_list)
+    img_txt_acc_2000_std = np.std(img_txt_acc_2000_list)
+
+    #
+    # num_overlapping: 4000
+    #
+
+    img_txt_acc_4000_list = [0.71180, 0.70868, 0.7118]
+    img_txt_acc_4000 = np.mean(img_txt_acc_4000_list)
+    img_txt_acc_4000_std = np.std(img_txt_acc_4000_list)
+
+    #
+    # num_overlapping: 8000
+    #
+    img_txt_acc_8000_list = [0.7382, 0.7357, 0.7369]
+    img_txt_acc_8000 = np.mean(img_txt_acc_8000_list)
+    img_txt_acc_8000_std = np.std(img_txt_acc_8000_list)
+
+    print("get_benchmark_result_v2:")
+    print("img_txt_acc_250_std:", img_txt_acc_250_std)
+    print("img_txt_acc_500_std:", img_txt_acc_500_std)
+    print("img_txt_acc_1000_std:", img_txt_acc_1000_std)
+    print("img_txt_acc_2000_std:", img_txt_acc_2000_std)
+    print("img_txt_acc_4000_std:", img_txt_acc_4000_std)
+    print("img_txt_acc_8000_std:", img_txt_acc_8000_std)
+
+    results = dict()
+    results["250"] = dict()
+    results["500"] = dict()
+    results["1000"] = dict()
+    results["2000"] = dict()
+    results["4000"] = dict()
+    results["8000"] = dict()
+
+    results["250"]["all_acc"] = img_txt_acc_250
+    # results["250"]["g_acc"] = img_acc_250
+    # results["250"]["h_acc"] = txt_acc_250
+
+    results["500"]["all_acc"] = img_txt_acc_500
+    # results["500"]["g_acc"] = img_acc_500
+    # results["500"]["h_acc"] = txt_acc_500
+
+    results["1000"]["all_acc"] = img_txt_acc_1000
+    # results["1000"]["g_acc"] = img_acc_1000
+    # results["1000"]["h_acc"] = txt_acc_1000
+
+    results["2000"]["all_acc"] = img_txt_acc_2000
+    # results["2000"]["g_acc"] = img_acc_2000
+    # results["2000"]["h_acc"] = txt_acc_2000
+
+    results["4000"]["all_acc"] = img_txt_acc_4000
+    # results["4000"]["g_acc"] = img_acc_4000
+    # results["4000"]["h_acc"] = txt_acc_4000
+
+    results["8000"]["all_acc"] = img_txt_acc_8000
+    # results["8000"]["g_acc"] = img_acc_8000
+    # results["8000"]["h_acc"] = txt_acc_8000
+
+    return results
+
+
 def plot_series(metric_records, lengend_list, scenario="", data_type=""):
     plt.rcParams['pdf.fonttype'] = 42
 
@@ -844,6 +1144,9 @@ def plot_series(metric_records, lengend_list, scenario="", data_type=""):
 
     # style_list = ["r", "b", "g", "k", "m", "y", "c"]
     style_list = ["orchid", "red", "green", "blue", "purple", "peru", "olive", "coral"]
+
+    if len(lengend_list) == 3:
+        style_list = ["r", "b", "b--"]
 
     if len(lengend_list) == 4:
         style_list = ["r", "b", "r--", "b--"]
@@ -879,23 +1182,24 @@ def plot_series(metric_records, lengend_list, scenario="", data_type=""):
     plt.ylabel("Test accuracy", fontsize=16)
     plt.title(scenario + " Party A with " + data_type, fontsize=16)
     plt.legend(lengend_list, fontsize=legend_size, loc='best')
+    plt.ylim((50, 80))
     plt.show()
 
 
 if __name__ == "__main__":
 
-    benchmark_result = get_benchmark_result()
-    guest = get_all_guest()
+    benchmark_result = get_benchmark_result_v2()
+    guest = get_all_guest_2()
 
-    fed_mvt = get_fed_image_as_guest_result_v2()
-    guest_acc = "g_image_acc"
-    guest_data_type = "image"
-    scenario = "Scenario-1:"
+    # fed_mvt = get_fed_image_as_guest_result_v3()
+    # guest_acc = "g_image_acc"
+    # guest_data_type = "image"
+    # scenario = "Scenario-1:"
 
-    # fed_mvt = get_fed_text_as_guest_result()
-    # guest_acc = "g_txt_acc"
-    # guest_data_type = "text"
-    # scenario = "Scenario-2:"
+    fed_mvt = get_fed_text_as_guest_result()
+    guest_acc = "g_txt_acc"
+    guest_data_type = "text"
+    scenario = "Scenario-2:"
 
     fedmvt_all = []
     fedmvt_guest = []
@@ -909,16 +1213,18 @@ if __name__ == "__main__":
         # guest_all_samples.append(guest[str(n_overlap_samples)][guest_acc])
         # vallina_VTL.append(benchmark_result[str(n_overlap_samples)][all_acc])
 
-        fedmvt_all.append(100*fed_mvt[str(n_overlap_samples)][all_acc])
-        fedmvt_guest.append(100*fed_mvt[str(n_overlap_samples)]["g_acc"])
-        guest_all_samples.append(100*guest[str(n_overlap_samples)][guest_acc])
-        vallina_VTL.append(100*benchmark_result[str(n_overlap_samples)][all_acc])
+        fedmvt_all.append(100 * fed_mvt[str(n_overlap_samples)][all_acc])
+        # fedmvt_guest.append(100 * fed_mvt[str(n_overlap_samples)]["g_acc"])
+        guest_all_samples.append(100 * guest[str(n_overlap_samples)][guest_acc])
+        vallina_VTL.append(100 * benchmark_result[str(n_overlap_samples)][all_acc])
 
     print("guest_all_samples:", guest_all_samples)
     print("vallina_VTL:", vallina_VTL)
-    print("fedmvt_guest:", fedmvt_guest)
+    # print("fedmvt_guest:", fedmvt_guest)
     print("fedmvt_all:", fedmvt_all)
 
-    metric_records = [guest_all_samples, vallina_VTL, fedmvt_guest, fedmvt_all]
-    lengend_list = ["Vanilla-local", "Vanilla-VFL", "FedMVT-local", "FedMVT-VFL"]
+    # metric_records = [guest_all_samples, vallina_VTL, fedmvt_guest, fedmvt_all]
+    # lengend_list = ["Vanilla-local", "Vanilla-VFL", "FedMVT-local", "FedMVT-VFL"]
+    metric_records = [guest_all_samples, vallina_VTL, fedmvt_all]
+    lengend_list = ["Local Model", "Vanilla-VFL", "FedMVT-VFL"]
     plot_series(metric_records, lengend_list, scenario=scenario, data_type=guest_data_type)

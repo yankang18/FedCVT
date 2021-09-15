@@ -37,6 +37,40 @@ def get_all_guest():
     return results
 
 
+def get_all_guest_v2():
+
+    g_250 = 0.6774
+    g_500 = 0.6774
+    g_1000 = 0.6774
+    g_2000 = 0.6774
+    g_4000 = 0.6774
+    g_6000 = 0.6774
+    g_8000 = 0.6774
+    g_10000 = 0.6774
+
+    results = dict()
+    results["250"] = dict()
+    results["500"] = dict()
+    results["1000"] = dict()
+    results["2000"] = dict()
+    results["4000"] = dict()
+    results["6000"] = dict()
+    results["8000"] = dict()
+    results["10000"] = dict()
+    results["12000"] = dict()
+    results["20000"] = dict()
+
+    results["250"]["g_acc"] = g_250
+    results["500"]["g_acc"] = g_500
+    results["1000"]["g_acc"] = g_1000
+    results["2000"]["g_acc"] = g_2000
+    results["4000"]["g_acc"] = g_4000
+    results["6000"]["g_acc"] = g_6000
+    results["8000"]["g_acc"] = g_8000
+    results["10000"]["g_acc"] = g_10000
+    return results
+
+
 def get_fed_mvt_result():
     # Num_overlap = 250
 
@@ -266,6 +300,9 @@ def plot_series(metric_records, lengend_list, data_type=""):
     # style_list = ["r", "b", "g", "k", "m", "y", "c"]
     style_list = ["orchid", "red", "green", "blue", "purple", "peru", "olive", "coral"]
 
+    if len(lengend_list) == 3:
+        style_list = ["r", "b", "b--"]
+
     if len(lengend_list) == 4:
         style_list = ["r", "b", "r--", "b--"]
 
@@ -307,7 +344,7 @@ def plot_series(metric_records, lengend_list, data_type=""):
 if __name__ == "__main__":
 
     benchmark_result = get_benchmark_result()
-    guest = get_all_guest()
+    guest = get_all_guest_v2()
 
     # fed_mvt = get_fed_image_as_guest_result_v2()
     # guest_acc = "g_image_acc"
@@ -326,7 +363,7 @@ if __name__ == "__main__":
     n_overlapping_samples_list = [250, 500, 1000, 2000, 4000, 6000, 8000, 10000]
     for n_overlap_samples in n_overlapping_samples_list:
         fedmvt_all.append(100*fed_mvt[str(n_overlap_samples)][all_acc])
-        fedmvt_guest.append(100*fed_mvt[str(n_overlap_samples)]["g_acc"])
+        # fedmvt_guest.append(100*fed_mvt[str(n_overlap_samples)]["g_acc"])
         guest_all_samples.append(100*guest[str(n_overlap_samples)][guest_acc])
         vallina_VTL.append(100*benchmark_result[str(n_overlap_samples)][all_acc])
 
@@ -335,6 +372,8 @@ if __name__ == "__main__":
     print("fedmvt_guest:", fedmvt_guest)
     print("fedmvt_all:", fedmvt_all)
 
-    metric_records = [guest_all_samples, vallina_VTL, fedmvt_guest, fedmvt_all]
-    lengend_list = ["Vanilla-local", "Vanilla-VFL", "FedMVT-local", "FedMVT-VFL"]
+    # metric_records = [guest_all_samples, vallina_VTL, fedmvt_guest, fedmvt_all]
+    # lengend_list = ["Vanilla-local", "Vanilla-VFL", "FedMVT-local", "FedMVT-VFL"]
+    metric_records = [guest_all_samples, vallina_VTL, fedmvt_all]
+    lengend_list = ["Local Model", "Vanilla-VFL", "FedMVT-VFL"]
     plot_series(metric_records, lengend_list, data_type=guest_data_type)

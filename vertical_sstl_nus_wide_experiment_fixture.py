@@ -121,8 +121,8 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                    estimation_block_size,
                    training_info_file_name,
                    sharpen_temperature,
-                   is_hetero_reprs):
-
+                   is_hetero_reprs,
+                   using_uniq, using_comm):
     print("############# Data Info ##############")
     print("X_guest_train shape", X_guest_train.shape)
     print("X_host_train shape", X_host_train.shape)
@@ -157,17 +157,38 @@ def run_experiment(X_guest_train, X_host_train, y_train,
     print("non_overlap_indices:\n", non_overlap_indices, len(set(non_overlap_indices)))
 
     combine_axis = 1
-    guest_hidden_dim = 48
-    host_hidden_dim = 48
+    # guest_hidden_dim = 96
+    # host_hidden_dim = 96
+    # guest_hidden_dim = 48
+    # host_hidden_dim = 48
+    # guest_hidden_dim = 192
+    # host_hidden_dim = 192
+
+    if using_comm and using_uniq:
+        guest_hidden_dim = 96
+        host_hidden_dim = 96
+        guest_input_dim = guest_hidden_dim * 2
+        host_input_dim = host_hidden_dim * 2
+    else:
+        guest_hidden_dim = 192
+        host_hidden_dim = 192
+        guest_input_dim = guest_hidden_dim
+        host_input_dim = host_hidden_dim
+
+    print("combine_axis:", combine_axis)
+    if combine_axis == 0:
+        fed_input_dim = host_hidden_dim + guest_hidden_dim
+    else:
+        fed_input_dim = host_input_dim + guest_input_dim
+
     num_class = 10
 
     label_prob_sharpen_temperature = 0.5
     fed_label_prob_threshold = 0.6
     host_label_prob_threshold = 0.5
-
-    # label_prob_sharpen_temperature = 0.5
-    # fed_label_prob_threshold = 1.0
-    # host_label_prob_threshold = 1.0
+    # label_prob_sharpen_temperature = 1.0
+    # fed_label_prob_threshold = 1.1
+    # host_label_prob_threshold = 1.1
 
     guest_model_param = PartyModelParam(data_folder=None,
                                         apply_dropout=False,
@@ -177,12 +198,6 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                        apply_dropout=False,
                                        hidden_dim_list=[host_hidden_dim],
                                        n_class=num_class)
-
-    print("combine_axis:", combine_axis)
-    if combine_axis == 0:
-        fed_input_dim = host_hidden_dim + guest_hidden_dim
-    else:
-        fed_input_dim = 2 * (host_hidden_dim + guest_hidden_dim)
 
     parallel_iterations = 100
 
@@ -214,8 +229,8 @@ def run_experiment(X_guest_train, X_host_train, y_train,
     print("* hyper-parameter_dict :{0}".format(hyperparameter_dict))
     print("* loss_weight_dict: {0}".format(loss_weight_dict))
     fed_model_param = FederatedModelParam(fed_input_dim=fed_input_dim,
-                                          guest_input_dim=guest_hidden_dim * 2,
-                                          host_input_dim=host_hidden_dim * 2,
+                                          guest_input_dim=guest_input_dim,
+                                          host_input_dim=host_input_dim,
                                           is_hetero_repr=is_hetero_reprs,
                                           using_block_idx=False,
                                           learning_rate=learning_rate,
@@ -239,7 +254,9 @@ def run_experiment(X_guest_train, X_host_train, y_train,
                                           fed_label_prob_threshold=fed_label_prob_threshold,
                                           host_label_prob_threshold=host_label_prob_threshold,
                                           training_info_file_name=training_info_file_name,
-                                          valid_iteration_interval=3)
+                                          valid_iteration_interval=3,
+                                          using_uniq=using_uniq,
+                                          using_comm=using_comm)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param,
@@ -267,7 +284,7 @@ def run_experiment(X_guest_train, X_host_train, y_train,
 
 def get_valid_sample_indices(data):
     idx_valid_sample_list = []
-    idx_invalid_sample_list = []                
+    idx_invalid_sample_list = []
     for idx, data in enumerate(data):
         if np.all(data == 0):
             idx_invalid_sample_list.append(idx)
@@ -303,16 +320,20 @@ if __name__ == "__main__":
     print("### Remove all-zero samples")
     print("X_text_all: ", X_text_train.shape)
     idx_valid_sample_list = get_valid_sample_indices(X_text_train)
-    X_guest_train = X_image_train[idx_valid_sample_list]
-    X_host_train = X_text_train[idx_valid_sample_list]
+    # X_guest_train = X_image_train[idx_valid_sample_list]
+    # X_host_train = X_text_train[idx_valid_sample_list]
+    X_guest_train = X_text_train[idx_valid_sample_list]
+    X_host_train = X_image_train[idx_valid_sample_list]
     Y_train = Y_train[idx_valid_sample_list]
 
     idx_valid_sample_list = get_valid_sample_indices(X_text_test)
-    X_guest_test = X_image_test[idx_valid_sample_list]
-    X_host_test = X_text_test[idx_valid_sample_list]
+    # X_guest_test = X_image_test[idx_valid_sample_list]
+    # X_host_test = X_text_test[idx_valid_sample_list]
+    X_guest_test = X_text_test[idx_valid_sample_list]
+    X_host_test = X_image_test[idx_valid_sample_list]
     Y_test = Y_test[idx_valid_sample_list]
 
-    test_indices = np.random.permutation(int(len(idx_valid_sample_list)/2))
+    test_indices = np.random.permutation(int(len(idx_valid_sample_list) / 2))
     X_guest_test = X_guest_test[test_indices]
     X_host_test = X_host_test[test_indices]
     Y_test = Y_test[test_indices]
@@ -328,9 +349,11 @@ if __name__ == "__main__":
 
     epoch = 30
     estimation_block_size = 5000
-    overlap_sample_batch_size = 128
-    non_overlap_sample_batch_size = 128
-    sharpen_temperature = 0.5
+    # overlap_sample_batch_size = 128
+    # non_overlap_sample_batch_size = 128
+    overlap_sample_batch_size = 256
+    non_overlap_sample_batch_size = 256
+    sharpen_temperature = 0.8
     is_hetero_reprs = False
 
     # num_overlap = 500
@@ -340,13 +363,16 @@ if __name__ == "__main__":
     # lambda_dis_ested_reprs_vs_true_reprs = [0.1]
     # lambda_host_dist_two_ested_lbls = [0.01]
     # learning_rate = [0.01]
-    num_overlap_list = [500]
+    num_overlap_list = [1000]
+    # num_overlap_list = [X_guest_train.shape[0]]
     lambda_dis_shared_reprs = [0.1]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.1]
-    lambda_host_dis_ested_lbls_vs_true_lbls = [1000]
+    lambda_host_dis_ested_lbls_vs_true_lbls = [100]
     lambda_dis_ested_reprs_vs_true_reprs = [0.1]
     lambda_host_dist_two_ested_lbls = [0.01]
-    learning_rate = [0.002]
+    learning_rate = [0.005]
+    using_uniq = True
+    using_comm = True
 
     file_folder = "training_log_info/"
     timestamp = get_timestamp()
@@ -377,7 +403,6 @@ if __name__ == "__main__":
                     for lbda_3 in lambda_host_dis_ested_lbls_vs_true_lbls:
                         for lbda_4 in lambda_dis_ested_reprs_vs_true_reprs:
                             for lbda_5 in lambda_host_dist_two_ested_lbls:
-
                                 file_name = file_folder + "nuswide_" + str(n_ol) + "_" + timestamp
 
                                 hyperparameter_dict["learning_rate"] = lbda_0
@@ -394,4 +419,6 @@ if __name__ == "__main__":
                                                estimation_block_size=estimation_block_size,
                                                training_info_file_name=file_name,
                                                sharpen_temperature=sharpen_temperature,
-                                               is_hetero_reprs=is_hetero_reprs)
+                                               is_hetero_reprs=is_hetero_reprs,
+                                               using_uniq=using_uniq,
+                                               using_comm=using_comm)

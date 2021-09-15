@@ -11,8 +11,7 @@ from param import FederatedModelParam
 from models.softmax_regression import LogisticRegression
 from models.regularization import EarlyStoppingCheckPoint
 from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost
-from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
-from vertical_sstl_representation_learner import sharpen
+from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator, concat_reprs, sharpen
 
 
 def transpose(x):
@@ -21,7 +20,11 @@ def transpose(x):
 
 class VerticalFederatedTransferLearning(object):
 
-    def __init__(self, vftl_guest: ExpandingVFTLGuest, vftl_host: ExpandingVFTLHost, model_param: FederatedModelParam):
+    def __init__(self,
+                 vftl_guest: ExpandingVFTLGuest,
+                 vftl_host: ExpandingVFTLHost,
+                 model_param: FederatedModelParam,
+                 debug=False):
         self.vftl_guest = vftl_guest
         self.vftl_host = vftl_host
         self.model_param = model_param
@@ -30,6 +33,7 @@ class VerticalFederatedTransferLearning(object):
         self.stop_training = False
         self.fed_lr = None
         self.guest_lr = None
+        self.debug = debug
 
     def set_representation_estimator(self, repr_estimator):
         self.repr_estimator = repr_estimator
@@ -58,36 +62,36 @@ class VerticalFederatedTransferLearning(object):
             Wt = tf.compat.v1.get_variable(name="Wt", initializer=tf.random.normal((in_dim, out_dim), dtype=tf.float32))
         return Wt
 
-    def _do_build_0(self):
-        pass
-
     def _do_build(self):
 
-        Ug_all, Ug_non_overlap, Ug_overlap = self.vftl_guest.fetch_feat_reprs()
-        Uh_all, Uh_non_overlap, Uh_overlap = self.vftl_host.fetch_feat_reprs()
+        using_uniq = self.model_param.using_uniq
+        using_comm = self.model_param.using_comm
+
+        Ug_all, Ug_non_overlap_, Ug_overlap_ = self.vftl_guest.fetch_feat_reprs()
+        Uh_all, Uh_non_overlap_, Uh_overlap_ = self.vftl_host.fetch_feat_reprs()
 
         Ug_all_uniq, Ug_all_comm = Ug_all
-        Ug_non_overlap_uniq, Ug_non_overlap_comm = Ug_non_overlap
-        Ug_overlap_uniq, Ug_overlap_comm = Ug_overlap
+        Ug_non_overlap_uniq, Ug_non_overlap_comm = Ug_non_overlap_
+        Ug_overlap_uniq, Ug_overlap_comm = Ug_overlap_
 
         Uh_all_uniq, Uh_all_comm = Uh_all
-        Uh_non_overlap_uniq, Uh_non_overlap_comm = Uh_non_overlap
-        Uh_overlap_uniq, Uh_overlap_comm = Uh_overlap
+        Uh_non_overlap_uniq, Uh_non_overlap_comm = Uh_non_overlap_
+        Uh_overlap_uniq, Uh_overlap_comm = Uh_overlap_
 
-        self.Ug_all_comm_temp = Ug_all_comm
-        self.Uh_all_comm_temp = Uh_all_comm
-        self.Ug_all_uniq_temp = Ug_all_uniq
-        self.Uh_all_uniq_temp = Uh_all_uniq
-
-        self.Ug_non_overlap_uniq_temp = Ug_non_overlap_uniq
-        self.Uh_non_overlap_uniq_temp = Uh_non_overlap_uniq
-        self.Ug_non_overlap_comm_temp = Ug_non_overlap_comm
-        self.Uh_non_overlap_comm_temp = Uh_non_overlap_comm
-
-        self.Ug_overlap_uniq_temp = Ug_overlap_uniq
-        self.Uh_overlap_uniq_temp = Uh_overlap_uniq
-        self.Ug_overlap_comm_temp = Ug_overlap_comm
-        self.Uh_overlap_comm_temp = Uh_overlap_comm
+        # self.Ug_all_comm_temp = Ug_all_comm
+        # self.Uh_all_comm_temp = Uh_all_comm
+        # self.Ug_all_uniq_temp = Ug_all_uniq
+        # self.Uh_all_uniq_temp = Uh_all_uniq
+        #
+        # self.Ug_non_overlap_uniq_temp = Ug_non_overlap_uniq
+        # self.Uh_non_overlap_uniq_temp = Uh_non_overlap_uniq
+        # self.Ug_non_overlap_comm_temp = Ug_non_overlap_comm
+        # self.Uh_non_overlap_comm_temp = Uh_non_overlap_comm
+        #
+        # self.Ug_overlap_uniq_temp = Ug_overlap_uniq
+        # self.Uh_overlap_uniq_temp = Uh_overlap_uniq
+        # self.Ug_overlap_comm_temp = Ug_overlap_comm
+        # self.Uh_overlap_comm_temp = Uh_overlap_comm
         ####
 
         sharpen_temp = self.model_param.sharpen_temperature
@@ -96,11 +100,19 @@ class VerticalFederatedTransferLearning(object):
         host_label_prob_threshold = self.model_param.host_label_prob_threshold
         is_hetero_repr = self.model_param.is_hetero_repr
 
+        print(f"[INFO] using_uniq:{using_uniq}")
+        print(f"[INFO] using_comm:{using_comm}")
         print(f"[INFO] is_hetero_repr:{is_hetero_repr}")
         print(f"[INFO] sharpen temperature:{sharpen_temp}")
         print(f"[INFO] label_prob_sharpen_temperature:{label_prob_sharpen_temperature}")
         print(f"[INFO] fed_label_prob_threshold:{fed_label_prob_threshold}")
         print(f"[INFO] host_label_prob_threshold:{host_label_prob_threshold}")
+
+        Ug_overlap_reprs = concat_reprs(Ug_overlap_uniq, Ug_overlap_comm, using_uniq, using_comm)
+        Uh_overlap_reprs = concat_reprs(Uh_overlap_uniq, Uh_overlap_comm, using_uniq, using_comm)
+
+        Ug_non_overlap_reprs = concat_reprs(Ug_non_overlap_uniq, Ug_non_overlap_comm, using_uniq, using_comm)
+        Uh_non_overlap_reprs = concat_reprs(Uh_non_overlap_uniq, Uh_non_overlap_comm, using_uniq, using_comm)
 
         W_hg = None
         if is_hetero_repr is True:
@@ -123,12 +135,14 @@ class VerticalFederatedTransferLearning(object):
             Uh_overlap_uniq,
             Uh_all_comm,
             sharpen_temperature=sharpen_temp,
-            W_gh=transpose(W_hg))
+            W_gh=transpose(W_hg),
+            using_uniq=using_uniq,
+            using_comm=using_comm)
         print("Uh_non_overlap_ested_reprs shape", Uh_non_overlap_ested_reprs.shape)
 
         # estimate feature representations and labels of missing samples of guest corresponding
         # to non-overlap samples of host
-        self.Ug_non_overlap_ested_reprs_w_lbls, _, _ = self.repr_estimator.estimate_labeled_guest_reprs_for_host_party(
+        self.Ug_non_overlap_ested_reprs_w_lbls = self.repr_estimator.estimate_labeled_guest_reprs_for_host_party(
             Uh_non_overlap_comm,
             Uh_non_overlap_uniq,
             Uh_overlap_uniq,
@@ -137,24 +151,37 @@ class VerticalFederatedTransferLearning(object):
             self.Y_overlap_for_est,
             Y_all_for_est,
             sharpen_tempature=sharpen_temp,
-            W_hg=W_hg)
+            W_hg=W_hg,
+            using_uniq=using_uniq,
+            using_comm=using_comm)
 
         print("[DEBUG] Ug_non_overlap_ested_reprs_w_lbls shape", self.Ug_non_overlap_ested_reprs_w_lbls.shape)
         Ug_non_overlap_ested_reprs = self.Ug_non_overlap_ested_reprs_w_lbls[:, :-self.n_class]
         self.nl_ested_lbls_for_att_ested_guest_reprs = self.Ug_non_overlap_ested_reprs_w_lbls[:, -self.n_class:]
 
+        # # representations for overlapping samples
+        # fed_ol_reprs = tf.concat([Ug_overlap_uniq, Ug_overlap_comm, Uh_overlap_uniq, Uh_overlap_comm], axis=1)
+        #
+        # # representations for non-overlapping samples of guest with host's representations estimated.
+        # fed_nl_w_host_ested_reprs = tf.concat([Ug_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_ested_reprs],
+        #                                       axis=1)
+        #
+        # # representations for non-overlapping samples of host with guest's representations estimated.
+        # fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_uniq, Uh_non_overlap_comm],
+        #                                        axis=1)
+
         # representations for overlapping samples
-        fed_ol_reprs = tf.concat([Ug_overlap_uniq, Ug_overlap_comm, Uh_overlap_uniq, Uh_overlap_comm], axis=1)
+        fed_ol_reprs = tf.concat([Ug_overlap_reprs, Uh_overlap_reprs], axis=1)
 
         # representations for non-overlapping samples of guest with host's representations estimated.
-        fed_nl_w_host_ested_reprs = tf.concat([Ug_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_ested_reprs],
+        fed_nl_w_host_ested_reprs = tf.concat([Ug_non_overlap_reprs, Uh_non_overlap_ested_reprs],
                                               axis=1)
 
         # representations for non-overlapping samples of host with guest's representations estimated.
-        fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_uniq, Uh_non_overlap_comm],
+        fed_nl_w_guest_ested_reprs = tf.concat([Ug_non_overlap_ested_reprs, Uh_non_overlap_reprs],
                                                axis=1)
 
-        Uh_non_overlap_reprs = tf.concat([Uh_non_overlap_uniq, Uh_non_overlap_comm], axis=1)
+        # Uh_non_overlap_reprs = tf.concat([Uh_non_overlap_uniq, Uh_non_overlap_comm], axis=1)
 
         # estimate labels for federated feature representations with guest's representations estimated.
         self.nl_ested_lbls_for_fed_ested_guest_reprs = self.fed_lr.predict_lbls_for_reprs(fed_nl_w_guest_ested_reprs)
@@ -216,13 +243,13 @@ class VerticalFederatedTransferLearning(object):
 
             fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs, sel_fed_nl_w_guest_ested_reprs], axis=0)
 
-            g_ol_reprs = tf.concat(Ug_overlap, axis=1)
-            g_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+            g_ol_reprs = tf.concat(Ug_overlap_reprs, axis=1)
+            g_nl_reprs = tf.concat(Ug_non_overlap_reprs, axis=1)
             # g_nl_estd_reprs = sel_fed_nl_w_guest_ested_reprs[:, :g_reprs_dim]
             g_reprs = tf.concat((g_ol_reprs, g_nl_reprs), axis=0)
             # g_reprs = tf.concat((g_ol_reprs, g_nl_reprs, g_nl_estd_reprs), axis=0)
 
-            h_ol_reprs = tf.concat(Uh_overlap, axis=1)
+            h_ol_reprs = tf.concat(Uh_overlap_reprs, axis=1)
             # h_nl_estd_reprs = tf.concat(Uh_non_overlap_ested_reprs, axis=1)
             # h_nl = sel_fed_nl_w_guest_ested_reprs[:, g_reprs_dim:]
             # h_reprs = tf.concat((h_ol_reprs, h_nl_estd_reprs, h_nl), axis=0)
@@ -244,24 +271,22 @@ class VerticalFederatedTransferLearning(object):
             #
             # h_ol_reprs = tf.concat(Uh_overlap, axis=1)
 
-            # 2
+            # 2 use representation estimation
             fed_reprs = tf.concat([fed_ol_reprs, fed_nl_w_host_ested_reprs], axis=0)
 
-            g_ol_reprs = tf.concat(Ug_overlap, axis=1)
-            g_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+            g_ol_reprs = tf.concat(Ug_overlap_reprs, axis=1)
+            g_nl_reprs = tf.concat(Ug_non_overlap_reprs, axis=1)
             g_reprs = tf.concat((g_ol_reprs, g_nl_reprs), axis=0)
 
-            h_ol_reprs = tf.concat(Uh_overlap, axis=1)
-
-            #
-            # h_nl_estd_reprs = tf.concat(Uh_non_overlap_ested_reprs, axis=1)
-            # h_reprs = tf.concat((h_ol_reprs, h_nl_estd_reprs), axis=0)
+            h_ol_reprs = tf.concat(Uh_overlap_reprs, axis=1)
 
             y = tf.concat([Y_overlap, Y_guest_non_overlap], axis=0)
-
-            # return fed_reprs, g_reprs, h_ol_reprs, Y_overlap, Y_overlap, Y_overlap
             return fed_reprs, g_reprs, h_ol_reprs, y, y, Y_overlap
-            # return fed_reprs, g_reprs, h_reprs, y, y, y
+
+            # 3 do not use representation estimation
+            # g_ol_reprs = tf.concat(Ug_overlap_reprs, axis=1)
+            # h_ol_reprs = tf.concat(Uh_overlap_reprs, axis=1)
+            # return fed_ol_reprs, g_ol_reprs, h_ol_reprs, Y_overlap, Y_overlap, Y_overlap
 
         train_fed_reprs, train_guest_reprs, train_host_reprs, train_fed_y, train_g_y, train_h_y = tf.cond(
             pred=has_selected_samples,
@@ -272,7 +297,8 @@ class VerticalFederatedTransferLearning(object):
         self.training_fed_reprs_shape = tf.shape(input=train_fed_reprs)
         self.training_guest_reprs_shape = tf.shape(input=train_guest_reprs)
 
-        guest_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+        # guest_nl_reprs = tf.concat(Ug_non_overlap, axis=1)
+        guest_nl_reprs = Ug_non_overlap_reprs
         repr_list = [fed_ol_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs]
 
         # print("train_fed_reprs shape", train_fed_reprs.shape)
@@ -295,7 +321,9 @@ class VerticalFederatedTransferLearning(object):
             Yg_overlap=self.Y_overlap_for_est,
             Yg_all=Y_all_for_est,
             sharpen_tempature=sharpen_temp,
-            W_hg=W_hg)
+            W_hg=W_hg,
+            using_uniq=using_uniq,
+            using_comm=using_comm)
 
         # estimate overlap feature representations on host side for guest party for minimizing alignment loss
         Uh_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
@@ -305,7 +333,9 @@ class VerticalFederatedTransferLearning(object):
             Uh_overlap_uniq,
             Uh_all_comm,
             sharpen_temperature=sharpen_temp,
-            W_gh=transpose(W_hg))
+            W_gh=transpose(W_hg),
+            using_uniq=using_uniq,
+            using_comm=using_comm)
 
         # estimate overlap feature representations and labels on guest side for host party for minimizing alignment loss
         result_overlap = self.repr_estimator.estimate_guest_reprs_n_lbls_for_host_party(Uh_uniq=Uh_overlap_uniq,
@@ -316,7 +346,9 @@ class VerticalFederatedTransferLearning(object):
                                                                                         Yg_overlap=self.Y_overlap_for_est,
                                                                                         Yg_all=Y_all_for_est,
                                                                                         sharpen_tempature=sharpen_temp,
-                                                                                        W_hg=W_hg)
+                                                                                        W_hg=W_hg,
+                                                                                        using_uniq=using_uniq,
+                                                                                        using_comm=using_comm)
         Ug_overlap_ested_reprs, self.Ug_overlap_ested_soft_lbls, ol_uniq_lbls, ol_comm_lbls = result_overlap
 
         # estimate non-overlap labels on guest side for host party for testing purpose
@@ -328,7 +360,9 @@ class VerticalFederatedTransferLearning(object):
                                                                                             Yg_overlap=self.Y_overlap_for_est,
                                                                                             Yg_all=Y_all_for_est,
                                                                                             sharpen_tempature=sharpen_temp,
-                                                                                            W_hg=W_hg)
+                                                                                            W_hg=W_hg,
+                                                                                            using_uniq=using_uniq,
+                                                                                            using_comm=using_comm)
         _, self.Uh_non_overlap_ested_soft_lbls, _, _ = result_non_overlap
 
         # loss_weight_dict = {"lambda_dist_shared_reprs": lambda_dist_shared_reprs,
@@ -341,41 +375,46 @@ class VerticalFederatedTransferLearning(object):
         #                     "lambda_host_dist_two_ested_lbl": lambda_host_dist_two_ested_lbl}
 
         assistant_loss_dict = dict()
+        add_assistant_loss = False
+        if add_assistant_loss:
+            # (1) loss for shared representations between host and guest
+            if using_comm:
+                assistant_loss_dict['lambda_dist_shared_reprs'] = self.get_shared_reprs_loss(Ug_overlap_comm,
+                                                                                             Uh_overlap_comm,
+                                                                                             W_hg=W_hg)
 
-        # (1) loss for shared representations between host and guest
-        assistant_loss_dict['lambda_dist_shared_reprs'] = self.get_shared_reprs_loss(Ug_overlap_comm,
-                                                                                     Uh_overlap_comm,
-                                                                                     W_hg=W_hg)
+            # (2) (3) loss for orthogonal representation for host and guest respectively
+            if using_uniq and using_comm:
+                guest_uniq_reprs_loss = self.get_orth_reprs_loss(Ug_all_uniq, Ug_all_comm)
+                assistant_loss_dict['lambda_guest_sim_shared_reprs_vs_unique_repr'] = guest_uniq_reprs_loss
 
-        # (2) (3) loss for orthogonal representation for host and guest respectively
-        guest_uniq_reprs_loss, host_uniq_reprs_loss = self.get_orth_reprs_loss(Ug_all_uniq,
-                                                                               Ug_all_comm,
-                                                                               Uh_all_uniq,
-                                                                               Uh_all_comm)
-        assistant_loss_dict['lambda_guest_sim_shared_reprs_vs_unique_repr'] = guest_uniq_reprs_loss
-        assistant_loss_dict['lambda_host_sim_shared_reprs_vs_unique_repr'] = host_uniq_reprs_loss
+            if using_uniq and using_comm:
+                host_uniq_reprs_loss = self.get_orth_reprs_loss(Uh_all_uniq, Uh_all_comm)
+                assistant_loss_dict['lambda_host_sim_shared_reprs_vs_unique_repr'] = host_uniq_reprs_loss
 
-        # (4) (5) loss for distance between estimated host overlap labels and true labels
-        Ug_ol_uniq_lbl_loss = self.get_label_estimation_loss(ol_uniq_lbls, Y_overlap)
-        Ug_ol_comm_lbl_loss = self.get_label_estimation_loss(ol_comm_lbls, Y_overlap)
+            # (4) (5) loss for distance between estimated host overlap labels and true labels
+            if using_uniq:
+                Ug_ol_uniq_lbl_loss = self.get_label_estimation_loss(ol_uniq_lbls, Y_overlap)
+                assistant_loss_dict['lambda_host_dist_ested_uniq_lbl_vs_true_lbl'] = Ug_ol_uniq_lbl_loss
 
-        assistant_loss_dict['lambda_host_dist_ested_uniq_lbl_vs_true_lbl'] = Ug_ol_uniq_lbl_loss
-        assistant_loss_dict['lambda_host_dist_ested_comm_lbl_vs_true_lbl'] = Ug_ol_comm_lbl_loss
+            if using_comm:
+                Ug_ol_comm_lbl_loss = self.get_label_estimation_loss(ol_comm_lbls, Y_overlap)
+                assistant_loss_dict['lambda_host_dist_ested_comm_lbl_vs_true_lbl'] = Ug_ol_comm_lbl_loss
 
-        # (6) loss for distance between estimated guest overlap representation and true guest representation
-        Ug_overlap_reprs = tf.concat([Ug_overlap_uniq, Ug_overlap_comm], axis=1)
-        Ug_overlap_ested_reprs_alignment_loss = self.get_alignment_loss(Ug_overlap_ested_reprs, Ug_overlap_reprs)
-        assistant_loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'] = Ug_overlap_ested_reprs_alignment_loss
+            # (6) loss for distance between estimated guest overlap representation and true guest representation
+            Ug_overlap_ested_reprs_alignment_loss = self.get_alignment_loss(Ug_overlap_ested_reprs, Ug_overlap_reprs)
+            assistant_loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'] = Ug_overlap_ested_reprs_alignment_loss
 
-        # (7) loss for distance between estimated host overlap representation and true host representation
-        Uh_overlap_reprs = tf.concat([Uh_overlap_uniq, Uh_overlap_comm], axis=1)
-        Uh_overlap_ested_reprs_alignment_loss = self.get_alignment_loss(Uh_overlap_ested_reprs, Uh_overlap_reprs)
-        assistant_loss_dict['lambda_host_dist_ested_repr_vs_true_repr'] = Uh_overlap_ested_reprs_alignment_loss
+            # (7) loss for distance between estimated host overlap representation and true host representation
+            Uh_overlap_ested_reprs_alignment_loss = self.get_alignment_loss(Uh_overlap_ested_reprs, Uh_overlap_reprs)
+            assistant_loss_dict['lambda_host_dist_ested_repr_vs_true_repr'] = Uh_overlap_ested_reprs_alignment_loss
 
-        # (8) loss for distance between shared-repr-estimated host label and uniq-repr-estimated host label
-        label_alignment_loss = self.get_alignment_loss(self.uniq_lbls, self.comm_lbls)
-        assistant_loss_dict['lambda_host_dist_two_ested_lbl'] = label_alignment_loss
+            # (8) loss for distance between shared-repr-estimated host label and uniq-repr-estimated host label
+            if using_uniq and using_comm:
+                label_alignment_loss = self.get_alignment_loss(self.uniq_lbls, self.comm_lbls)
+                assistant_loss_dict['lambda_host_dist_two_ested_lbl'] = label_alignment_loss
 
+        print("## assistant_loss_dict:", len(assistant_loss_dict), assistant_loss_dict)
         train_component_list = [train_fed_reprs, train_guest_reprs, train_host_reprs,
                                 train_fed_y, train_g_y, train_h_y,
                                 assistant_loss_dict]
@@ -422,11 +461,11 @@ class VerticalFederatedTransferLearning(object):
         fed_overlap_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs = repr_list
 
         self.guest_lr.set_ops(learning_rate=learning_rate, reg_lambda=guest_reg_lambda,
-                              tf_X_in=guest_reprs, tf_labels_in=guest_Y)
+                              tf_X_in=guest_reprs, tf_labels_in=guest_Y, comb_loss_lambda=1.0)
         self.guest_lr.set_guest_side_predict_ops(guest_nl_reprs)
 
         self.host_lr.set_ops(learning_rate=learning_rate, reg_lambda=guest_reg_lambda,
-                             tf_X_in=host_reprs, tf_labels_in=host_Y)
+                             tf_X_in=host_reprs, tf_labels_in=host_Y, comb_loss_lambda=1.0)
         # self.host_lr.set_guest_side_predict_ops(guest_nl_reprs)
 
         self.fed_lr.set_loss_factors(self.loss_dict, loss_weight_dict)
@@ -449,11 +488,10 @@ class VerticalFederatedTransferLearning(object):
         return shared_reprs_loss
 
     @staticmethod
-    def get_orth_reprs_loss(Ug_uniq, Ug_comm, Uh_uniq, Uh_comm):
-        num_samples = tf.cast(tf.shape(input=Ug_uniq)[0], tf.float32)
-        guest_uniq_reprs_loss = tf.nn.l2_loss(tf.matmul(Ug_uniq, tf.transpose(a=Ug_comm))) / num_samples
-        host_uniq_reprs_loss = tf.nn.l2_loss(tf.matmul(Uh_uniq, tf.transpose(a=Uh_comm))) / num_samples
-        return guest_uniq_reprs_loss, host_uniq_reprs_loss
+    def get_orth_reprs_loss(uniq_reprs, comm_reprs):
+        num_samples = tf.cast(tf.shape(input=uniq_reprs)[0], tf.float32)
+        loss = tf.nn.l2_loss(tf.matmul(uniq_reprs, tf.transpose(a=comm_reprs))) / num_samples
+        return loss
 
     @staticmethod
     def get_label_estimation_loss(pred_soft_lbls, true_lbls):
@@ -656,47 +694,6 @@ class VerticalFederatedTransferLearning(object):
             agg_y_fscore = self.f_score(agg_y_host_res[0], agg_y_host_res[1])
 
             fl_host_acc = accuracy_score(y_test_1d, fl_y_hat_host_side_1d)
-            # print("fl_y_reprs: ", fl_y_reprs, fl_y_reprs.shape)
-            # model_param = self.fed_lr.get_model_parameters()
-            # model_param_W = model_param["W"]
-            # print("model_param:", model_param_W, model_param_W.shape)
-
-            # for idx, fl_y_reprs_i in enumerate(fl_y_reprs):
-            #     if np.isnan(fl_y_reprs_i).any():
-            #         print("fl_y_reprs_i", idx, fl_y_reprs_i)
-
-            # print("y_test_1d: ")
-            # for idx, y_test_1d_i in enumerate(y_test_1d):
-            #     if np.isnan(y_test_1d_i).any():
-            #         print("y_test_1d_i", idx, y_test_1d_i)
-            # print("att_y_prob_host_side: ")
-            # for idx, att_y_prob_host_side_i in enumerate(att_y_prob_host_side):
-            #     if np.isnan(att_y_prob_host_side_i).any():
-            #         print("att_y_prob_host_side_i", idx, att_y_prob_host_side_i)
-            # print("fl_y_prob_host_side: ")
-            # for idx, fl_y_prob_host_side_i in enumerate(fl_y_prob_host_side):
-            #     if np.isnan(fl_y_prob_host_side_i).any():
-            #         print("fl_y_prob_host_side_i", idx, fl_y_prob_host_side_i)
-            #
-            # print("y_test_1d: ")
-            # for idx, y_test_1d_i in enumerate(y_test_1d):
-            #     # if np.isnan(y_test_1d_i).any():
-            #     print("y_test_1d_i", idx, y_test_1d_i)
-            #     if idx > 50:
-            #         break
-            # print("att_y_prob_host_side: ")
-            # for idx, att_y_prob_host_side_i in enumerate(att_y_hat_host_side_1d):
-            #     # if np.isnan(att_y_prob_host_side_i).any():
-            #     print("att_y_prob_host_side_i", idx, att_y_prob_host_side_i)
-            #     if idx > 50:
-            #         break
-            # print("fl_y_prob_host_side: ")
-            # for idx, fl_y_prob_host_side_i in enumerate(fl_y_hat_host_side_1d):
-            #     # if np.isnan(fl_y_prob_host_side_i).any():
-            #     print("fl_y_prob_host_side_i", idx, fl_y_prob_host_side_i)
-            #     if idx > 50:
-            #         break
-
             fl_host_auc = roc_auc_score(y_test, fl_y_prob_host_side)
             # fl_host_auc = 1.0
 
@@ -798,30 +795,37 @@ class VerticalFederatedTransferLearning(object):
         # print("=======")
 
         # _, fed_reprs, fed_Y, shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, \
-        _, _, _, fed_reprs, fed_Y, shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, \
-        ol_uniq_lbl_loss, ol_comm_lbl_loss, \
-        guest_repr_dist, host_repr_dist, ested_lbl_dist, regularization_loss, pred_loss, mean_pred_loss, ob_loss, \
+        # shared_reprs_dist_loss, distinct_reprs_loss_1, distinct_reprs_loss_2, \
+        # ol_uniq_lbl_loss, ol_comm_lbl_loss, \
+        # guest_repr_dist, host_repr_dist, ested_lbl_dist, \
+        # uniqlbls, commlbls, \
+
+        # _, _, _, fed_reprs, \
+        # _, fed_reprs, \
+        _, _, _, fed_reprs, \
+        fed_Y, regularization_loss, pred_loss, mean_pred_loss, ob_loss, \
         logits, train_lbls, true_lbls_, computed_gradients, num_selected_samples, training_fed_reprs_shape, \
-        host_non_overlap_reprs_w_condidate_labels, uniqlbls, commlbls, Ug_non_overlap_ested_reprs_w_lbls, \
+        host_non_overlap_reprs_w_condidate_labels, \
+        Ug_non_overlap_ested_reprs_w_lbls, \
         nl_ested_lbls_for_att_ested_guest_reprs, nl_ested_lbls_for_fed_ested_guest_reprs, \
-        nl_ested_lbls_for_lr_ested_guest_reprs, nl_ested_lbls_for_lr_host_reprs, \
-        Ug_all_comm, Uh_all_comm, Ug_all_uniq, Uh_all_uniq, \
-        Ug_non_overlap_uniq, Uh_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_comm, \
-        Ug_overlap_uniq, Uh_overlap_uniq, Ug_overlap_comm, Uh_overlap_comm = sess.run(
+        nl_ested_lbls_for_lr_ested_guest_reprs, nl_ested_lbls_for_lr_host_reprs = sess.run(
+            # Ug_all_comm, Uh_all_comm, Ug_all_uniq, Uh_all_uniq, \
+            # Ug_non_overlap_uniq, Uh_non_overlap_uniq, Ug_non_overlap_comm, Uh_non_overlap_comm, \
+            # Ug_overlap_uniq, Uh_overlap_uniq, Ug_overlap_comm, Uh_overlap_comm = sess.run(
             [
                 self.fed_lr.e2e_train_op,
                 self.guest_lr.e2e_train_op,
                 self.host_lr.e2e_train_op,
                 self.fed_reprs,
                 self.fed_Y,
-                self.loss_dict['lambda_dist_shared_reprs'],
-                self.loss_dict['lambda_guest_sim_shared_reprs_vs_unique_repr'],
-                self.loss_dict['lambda_host_sim_shared_reprs_vs_unique_repr'],
-                self.loss_dict['lambda_host_dist_ested_uniq_lbl_vs_true_lbl'],
-                self.loss_dict['lambda_host_dist_ested_comm_lbl_vs_true_lbl'],
-                self.loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'],
-                self.loss_dict['lambda_host_dist_ested_repr_vs_true_repr'],
-                self.loss_dict['lambda_host_dist_two_ested_lbl'],
+                # self.loss_dict['lambda_dist_shared_reprs'],
+                # self.loss_dict['lambda_guest_sim_shared_reprs_vs_unique_repr'],
+                # self.loss_dict['lambda_host_sim_shared_reprs_vs_unique_repr'],
+                # self.loss_dict['lambda_host_dist_ested_uniq_lbl_vs_true_lbl'],
+                # self.loss_dict['lambda_host_dist_ested_comm_lbl_vs_true_lbl'],
+                # self.loss_dict['lambda_guest_dist_ested_repr_vs_true_repr'],
+                # self.loss_dict['lambda_host_dist_ested_repr_vs_true_repr'],
+                # self.loss_dict['lambda_host_dist_two_ested_lbl'],
                 self.fed_lr.reg_loss,
                 self.fed_lr.pred_loss,
                 self.fed_lr.mean_pred_loss,
@@ -835,25 +839,25 @@ class VerticalFederatedTransferLearning(object):
                 self.num_selected_samples,
                 self.training_fed_reprs_shape,
                 self.fed_nl_w_ested_guest_reprs_n_candidate_labels,
-                self.uniq_lbls,
-                self.comm_lbls,
+                # self.uniq_lbls,
+                # self.comm_lbls,
                 self.Ug_non_overlap_ested_reprs_w_lbls,
                 self.nl_ested_lbls_for_att_ested_guest_reprs,
                 self.nl_ested_lbls_for_fed_ested_guest_reprs,
                 self.nl_ested_lbls_for_lr_ested_guest_reprs,
                 self.nl_ested_lbls_for_lr_host_reprs,
-                self.Ug_all_comm_temp,
-                self.Uh_all_comm_temp,
-                self.Ug_all_uniq_temp,
-                self.Uh_all_uniq_temp,
-                self.Ug_non_overlap_uniq_temp,
-                self.Uh_non_overlap_uniq_temp,
-                self.Ug_non_overlap_comm_temp,
-                self.Uh_non_overlap_comm_temp,
-                self.Ug_overlap_uniq_temp,
-                self.Uh_overlap_uniq_temp,
-                self.Ug_overlap_comm_temp,
-                self.Uh_overlap_comm_temp
+                # self.Ug_all_comm_temp,
+                # self.Uh_all_comm_temp,
+                # self.Ug_all_uniq_temp,
+                # self.Uh_all_uniq_temp,
+                # self.Ug_non_overlap_uniq_temp,
+                # self.Uh_non_overlap_uniq_temp,
+                # self.Ug_non_overlap_comm_temp,
+                # self.Uh_non_overlap_comm_temp,
+                # self.Ug_overlap_uniq_temp,
+                # self.Uh_overlap_uniq_temp,
+                # self.Ug_overlap_comm_temp,
+                # self.Uh_overlap_comm_temp
             ],
             feed_dict=train_feed_dict)
 
@@ -1020,14 +1024,14 @@ class VerticalFederatedTransferLearning(object):
             # # print("original_host_nonoverlap_samples_shape:", original_shape)
             # # print("selected_host_nonoverlap_samples_shape:", selected_shape)
 
-            print("[DEBUG] (1) shared_reprs_dist_loss", shared_reprs_dist_loss)
-            print("[DEBUG] (2) distinct_reprs_loss_1", distinct_reprs_loss_1)
-            print("[DEBUG] (3) distinct_reprs_loss_2", distinct_reprs_loss_2)
-            print("[DEBUG] (4) ol_uniq_lbl_loss", ol_uniq_lbl_loss)
-            print("[DEBUG] (5) ol_comm_lbl_loss", ol_comm_lbl_loss)
-            print("[DEBUG] (6) guest_repr_dist", guest_repr_dist)
-            print("[DEBUG] (7) host_repr_dist", host_repr_dist)
-            print("[DEBUG] (8) ested_lbl_dist", ested_lbl_dist)
+            # print("[DEBUG] (1) shared_reprs_dist_loss", shared_reprs_dist_loss)
+            # print("[DEBUG] (2) distinct_reprs_loss_1", distinct_reprs_loss_1)
+            # print("[DEBUG] (3) distinct_reprs_loss_2", distinct_reprs_loss_2)
+            # print("[DEBUG] (4) ol_uniq_lbl_loss", ol_uniq_lbl_loss)
+            # print("[DEBUG] (5) ol_comm_lbl_loss", ol_comm_lbl_loss)
+            # print("[DEBUG] (6) guest_repr_dist", guest_repr_dist)
+            # print("[DEBUG] (7) host_repr_dist", host_repr_dist)
+            # print("[DEBUG] (8) ested_lbl_dist", ested_lbl_dist)
             print("[DEBUG] regularization_loss", regularization_loss)
             print("[DEBUG] mean_pred_loss", mean_pred_loss)
             print("[DEBUG] total ob_loss", ob_loss)
@@ -1265,8 +1269,7 @@ class VerticalFederatedTransferLearning(object):
                                                                                        nol_guest_block_idx,
                                                                                        nol_host_block_idx,
                                                                                        ested_guest_block_idx,
-                                                                                       ested_host_block_idx)
-                          .format(i, ol_batch_idx, nol_guest_batch_idx, nol_host_batch_idx, loss))
+                                                                                       ested_host_block_idx))
 
                     ol_batch_idx = ol_batch_idx + 1
                     nol_guest_batch_idx = nol_guest_batch_idx + 1

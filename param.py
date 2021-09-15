@@ -18,13 +18,15 @@ class FederatedModelParam(object):
     def __init__(self, fed_input_dim, guest_input_dim=None, host_input_dim=None,
                  fed_hidden_dim=None, guest_hidden_dim=None, host_hidden_dim=None,
                  using_block_idx=True, num_guest_nonoverlap_samples=None, num_host_nonoverlap_samples=None,
-                 learning_rate=0.01, fed_reg_lambda=0.01, guest_reg_lambda=0.0, loss_weight_dict=None, overlap_indices=None,
+                 learning_rate=0.01, fed_reg_lambda=0.01, guest_reg_lambda=0.0, loss_weight_dict=None,
+                 overlap_indices=None,
                  non_overlap_indices=None, epoch=50, top_k=3, combine_axis=0, parallel_iterations=10,
                  overlap_sample_batch_size=None, non_overlap_sample_batch_size=None,
                  overlap_sample_batch_num=10, all_sample_block_size=500,
-                 is_hetero_repr=False, sharpen_temperature=0.1, label_prob_sharpen_temperature=0.5, 
+                 is_hetero_repr=False, sharpen_temperature=0.1, label_prob_sharpen_temperature=0.5,
                  fed_label_prob_threshold=0.7, host_label_prob_threshold=0.6,
-                 training_info_file_name=None, valid_iteration_interval=5):
+                 training_info_file_name=None, valid_iteration_interval=5,
+                 using_uniq=True, using_comm=True, device="cpu"):
         self.learning_rate = learning_rate
         self.using_block_idx = using_block_idx
         self.fed_input_dim = fed_input_dim
@@ -55,6 +57,9 @@ class FederatedModelParam(object):
         self.fed_label_prob_threshold = fed_label_prob_threshold
         self.training_info_file_name = training_info_file_name
         self.valid_iteration_interval = valid_iteration_interval
+        self.using_uniq = using_uniq
+        self.using_comm = using_comm
+        self.device = device
 
     def get_parameters(self):
         param_dict = OrderedDict()

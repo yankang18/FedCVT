@@ -205,9 +205,9 @@ class Autoencoder(FeatureExtractor):
         be = self.enc_layer_vars_map["be_" + str(layer_index)]
         # return tf.matmul(X, We)
         # return tf.nn.tanh(tf.matmul(X, We))
-        # return tf.matmul(X, We) + be
+        return tf.matmul(X, We) + be
         # return tf.nn.tanh(tf.matmul(X, We) + be)
-        return tf.nn.leaky_relu(tf.matmul(X, We)+be)
+        # return tf.nn.leaky_relu(tf.matmul(X, We) + be)
         # return tf.nn.sigmoid(tf.matmul(X, We))
 
     def _forward_logits(self, X):

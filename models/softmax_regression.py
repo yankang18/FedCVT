@@ -25,6 +25,7 @@ class LogisticRegression(object):
         self.stop_training = False
         self.reprs = None
         self.lr_trainable_variables = None
+        self.comb_loss_lambda = 1.0
 
     def save_model(self):
         print("TODO: save model")
@@ -57,8 +58,9 @@ class LogisticRegression(object):
             self.W_2_initializer = tf.random.normal((self.hidden_dim, self.n_class), stddev=self.stddev, dtype=tf.float32)
             self.b_2_initializer = np.zeros(self.n_class).astype(np.float32)
 
-    def set_ops(self, learning_rate=1e-2, reg_lambda=0.01, tf_X_in=None, tf_labels_in=None):
+    def set_ops(self, learning_rate=1e-2, reg_lambda=0.01, tf_X_in=None, tf_labels_in=None, comb_loss_lambda=1.0):
         self.lr = learning_rate
+        self.comb_loss_lambda = comb_loss_lambda
         self.reg_lambda = reg_lambda
         self.tf_X_in = tf_X_in
         self.tf_labels_in = tf_labels_in
@@ -132,7 +134,7 @@ class LogisticRegression(object):
             # self.pred_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.tf_labels_in)
         self.mean_pred_loss = tf.reduce_mean(input_tensor=self.pred_loss)
         self.loss = self.mean_pred_loss + self.reg_lambda * self.reg_loss
-        self.loss = self.append_loss_factors(self.loss)
+        self.loss = self.comb_loss_lambda * self.append_loss_factors(self.loss)
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.lr)
         # optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=self.lr)
         # optimizer = tf.compat.v1.train.MomentumOptimizer(learning_rate=self.lr, momentum=0.9)

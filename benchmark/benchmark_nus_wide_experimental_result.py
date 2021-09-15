@@ -572,7 +572,7 @@ def plot_series(metric_records, lengend_list):
 
 if __name__ == "__main__":
 
-    image_as_guest_result =  get_image_as_guest_result()
+    image_as_guest_result = get_image_as_guest_result()
     benchmark_result = get_benchmark_result()
 
     image_as_guest = []

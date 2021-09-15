@@ -1,19 +1,14 @@
 import json
-import time
 
-import tensorflow as tf
+import torch
+import torch.backends.cudnn as cudnn
 
-from models.cnn_models import ClientVGG8
 from param import PartyModelParam, FederatedModelParam
-from vertical_semi_supervised_transfer_learning import VerticalFederatedTransferLearning
-from vertical_sstl_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
-from vertical_sstl_representation_learner import AttentionBasedRepresentationEstimator
-
-
-def get_timestamp():
-    local_time = time.localtime(time.time())
-    timestamp = time.strftime("%Y%m%d%H%M%S", local_time)
-    return timestamp
+from pytorch_version.fedmvt_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
+from pytorch_version.fedmvt_repr_learner import AttentionBasedRepresentationEstimator
+from pytorch_version.fedmvt_train import VerticalFederatedTransferLearning
+from pytorch_version.models import ClientVGG8
+from pytorch_version.utils import get_timestamp
 
 
 class ExpandingVFTLGuestConstructor(object):
@@ -26,10 +21,7 @@ class ExpandingVFTLGuestConstructor(object):
         print("Guest Setup")
 
         nn_prime = ClientVGG8("cnn_0")
-        nn_prime.build(input_shape=input_shape)
-
         nn = ClientVGG8("cnn_1")
-        nn.build(input_shape=input_shape)
 
         guest_data_loader = ExpandingVFTLDataLoader(data_folder_path=data_folder,
                                                     is_guest=True)
@@ -69,10 +61,7 @@ class ExpandingVFTLHostConstructor(object):
         print("Host Setup")
 
         nn_prime = ClientVGG8("cnn_2")
-        nn_prime.build(input_shape=input_shape)
-
         nn = ClientVGG8("cnn_3")
-        nn.build(input_shape=input_shape)
 
         host_data_loader = ExpandingVFTLDataLoader(data_folder_path=data_folder,
                                                    is_guest=False)
@@ -104,7 +93,18 @@ class ExpandingVFTLHostConstructor(object):
 
 tag_PATH = "[INFO]"
 if __name__ == "__main__":
-    dataset_folder_path = "../../data/cifar-10-batches-py_500/"
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    gpu = 7
+
+    if torch.cuda.is_available():
+        print("[INFO] cuda is available")
+        torch.cuda.set_device(gpu)
+        cudnn.benchmark = True
+        cudnn.enabled = True
+
+    # dataset_folder_path = "../../data/cifar-10-batches-py_500/"
+    dataset_folder_path = '/Users/yankang/Documents/Data/cifar-10-batches-py_500/'
     print("{0} dataset_folder_path: {1}".format(tag_PATH, dataset_folder_path))
 
     file_folder = "training_log_info/"
@@ -113,11 +113,7 @@ if __name__ == "__main__":
 
     # configuration
     combine_axis = 1
-    print("here")
-    # num_non_overlap = num_train - num_overlap
 
-    # guest_model_param = PartyModelParam(n_class=10)
-    # host_model_param = PartyModelParam(n_class=10)
     guest_model_param = PartyModelParam(n_class=10, keep_probability=0.75, apply_dropout=True)
     host_model_param = PartyModelParam(n_class=10, keep_probability=0.75, apply_dropout=True)
 
@@ -148,6 +144,7 @@ if __name__ == "__main__":
 
     fed_model_param = FederatedModelParam(fed_input_dim=input_dim,
                                           guest_input_dim=guest_input_dim,
+                                          host_input_dim=guest_input_dim,
                                           fed_hidden_dim=hidden_dim,
                                           guest_hidden_dim=None,
                                           using_block_idx=True,
@@ -167,14 +164,15 @@ if __name__ == "__main__":
                                           sharpen_temperature=0.1,
                                           fed_label_prob_threshold=0.6,
                                           host_label_prob_threshold=0.3,
-                                          training_info_file_name=file_name)
+                                          training_info_file_name=file_name,
+                                          device=device)
 
     # set up and train model
     guest_constructor = ExpandingVFTLGuestConstructor(guest_model_param)
     host_constructor = ExpandingVFTLHostConstructor(host_model_param)
 
-    tf.compat.v1.reset_default_graph()
-    tf.compat.v1.disable_eager_execution()
+    # tf.compat.v1.reset_default_graph()
+    # tf.compat.v1.disable_eager_execution()
 
     input_shape = (32, 16, 3)
     guest = guest_constructor.build(data_folder=dataset_folder_path,
@@ -182,7 +180,7 @@ if __name__ == "__main__":
     host = host_constructor.build(data_folder=dataset_folder_path,
                                   input_shape=input_shape)
 
-    VFTL = VerticalFederatedTransferLearning(guest, host, fed_model_param)
+    VFTL = VerticalFederatedTransferLearning(guest, host, fed_model_param, debug=False)
     VFTL.set_representation_estimator(AttentionBasedRepresentationEstimator())
     VFTL.build()
-    VFTL.train(debug=False)
+    VFTL.train()

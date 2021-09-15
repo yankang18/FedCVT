@@ -27,14 +27,14 @@ def retrieve_top_k_labels(data_dir, top_k=10):
     label_counts = {}
     for filename in os.listdir(os.path.join(data_dir, all_label_path)):
         file = os.path.join(data_dir, all_label_path, filename)
-        print(f"[INFO] load file:{file}")
+        # print(f"[INFO] load file:{file}")
         if os.path.isfile(file):
             label = file[:-4].split("_")[-1]
             df = pd.read_csv(os.path.join(file))
             df.columns = ['label']
             label_counts[label] = (df[df['label'] == 1].shape[0])
     label_counts = sorted(label_counts.items(), key=lambda x: x[1], reverse=True)
-    selected = [(k, v) for (k, v) in label_counts[:top_k]]
+    selected = [k for (k, v) in label_counts[:top_k]]
     return selected
 
 
@@ -61,11 +61,11 @@ def get_labeled_data(data_dir, selected_label, n_samples, dtype="Train"):
         df.columns = [label]
         dfs.append(df)
     data_labels = pd.concat(dfs, axis=1)
-
     if len(selected_label) > 1:
         selected_labels = data_labels[data_labels.sum(axis=1) == 1]
     else:
         selected_labels = data_labels
+    print("[INFO] load rows with valid label", selected_labels.shape)
 
     dfs = []
     for file in os.listdir(os.path.join(data_dir, image_features_path)):
@@ -75,12 +75,15 @@ def get_labeled_data(data_dir, selected_label, n_samples, dtype="Train"):
             print(f"[INFO] load image feature ({file}) with ({len(df.columns)}) dimension.")
             dfs.append(df)
     all_image_features = pd.concat(dfs, axis=1)
+    print(f"[INFO] load all image features with shape: {all_image_features.shape}")
+
     selected_image_features = all_image_features.loc[selected_labels.index]
 
     file = "_".join([dtype, "Tags1k"]) + ".dat"
     all_text_features = pd.read_csv(os.path.join(data_dir, text_tag_path, file), header=None, sep="\t")
     all_text_features.dropna(axis=1, inplace=True)
-    print(f"[INFO] load text feature ({file}) with ({len(all_text_features.columns)}) dimension.")
+    print(f"[INFO] load all text features ({file}) with shape: {all_text_features.shape}.")
+
     selected_text_features = all_text_features.loc[selected_labels.index]
 
     if n_samples is None:
