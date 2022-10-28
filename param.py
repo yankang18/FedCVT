@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 class PartyModelParam(object):
     def __init__(self, n_class, dense_units=None, data_folder=None, keep_probability=0.7, learning_rate=0.01,
-                 input_shape=None, hidden_dim_list=None, apply_dropout=False):
+                 input_shape=None, hidden_dim_list=None, apply_dropout=False, normalize_repr=True, device="cpu"):
         self.nn_learning_rate = learning_rate
         self.n_class = n_class
         self.keep_probability = keep_probability
@@ -12,6 +12,8 @@ class PartyModelParam(object):
         self.apply_dropout = apply_dropout
         self.data_folder = data_folder
         self.dense_units = dense_units
+        self.normalize_repr = normalize_repr
+        self.device = device
 
 
 class FederatedModelParam(object):

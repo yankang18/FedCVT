@@ -1,30 +1,34 @@
-import tensorflow as tf
-from tensorflow.python.ops import tensor_array_ops
+import torch
+import torch.nn.functional as F
 
 
-def sharpen(p, temperature=0.1, axis=1):
-    u = tf.math.pow(p, 1 / temperature)
-    return u / tf.math.reduce_sum(input_tensor=u, axis=axis, keepdims=True)
+# def sharpen(p, temperature=0.1, axis=1):
+#     u = tf.math.pow(p, 1 / temperature)
+#     return u / tf.math.reduce_sum(input_tensor=u, axis=axis, keepdims=True)
+
+def sharpen(p, temperature=0.1):
+    u = torch.pow(p, 1 / temperature)
+    return u / torch.sum(u, dim=1, keepdim=True)
 
 
 def compute_queries_keys_sim(queries, keys, Wqk=None):
     if Wqk is None:
-        return tf.matmul(queries, tf.transpose(a=keys)) / tf.sqrt(tf.cast(tf.shape(input=keys)[1], dtype=tf.float32))
+        # print("keys[1].shape:", keys[1].shape[0])
+        return torch.matmul(queries, torch.transpose(keys, 0, 1)) / torch.sqrt(torch.tensor(keys[1].shape[0]))
     else:
-        trans_queries = tf.matmul(queries, Wqk)
-        return tf.matmul(trans_queries, tf.transpose(a=keys)) / tf.sqrt(
-            tf.cast(tf.shape(input=keys)[1], dtype=tf.float32))
+        trans_queries = torch.matmul(queries, Wqk)
+        return torch.matmul(trans_queries, torch.transpose(keys, 0, 1)) / torch.sqrt(torch.tensor(keys[1].shape[0]))
 
 
 def softmax_with_sharpening(matrix, sharpen_temperature=None):
-    softmax_matrix = tf.nn.softmax(matrix, axis=1)
+    softmax_matrix = F.softmax(matrix, dim=1, _stacklevel=5)
     if sharpen_temperature is not None:
         softmax_matrix = sharpen(softmax_matrix, temperature=sharpen_temperature)
     return softmax_matrix
 
 
 def compute_attention_using_similarity_matrix(similarity_matrix, values):
-    return tf.matmul(similarity_matrix, values)
+    return torch.matmul(similarity_matrix, values)
 
 
 def compute_softmax_matrix(queries, keys, temperature=0.1, Wqk=None):
@@ -39,7 +43,7 @@ def compute_attention(queries, keys, values, sharpen_temperature=0.1, Wqk=None):
 
 def concat_reprs(uniq_reprs, comm_reprs, using_uniq, using_comm):
     if using_uniq and using_comm:
-        return tf.concat([uniq_reprs, comm_reprs], axis=1)
+        return torch.cat([uniq_reprs, comm_reprs], dim=1)
 
     return uniq_reprs if using_uniq else comm_reprs
 
@@ -81,7 +85,7 @@ class AttentionBasedRepresentationEstimator(object):
                                                                    Wqk=W_gh)
 
         if using_uniq and using_comm:
-            return tf.concat([uniq_reprs, comm_reprs], axis=1)
+            return torch.cat([uniq_reprs, comm_reprs], dim=1)
         return uniq_reprs if using_uniq else comm_reprs
 
     @staticmethod
@@ -110,12 +114,12 @@ class AttentionBasedRepresentationEstimator(object):
         comm_reprs = None
         comm_lbls = None
         if using_uniq:
-            uniq_reprs = tf.matmul(softmax_matrix_uniq, Ug_overlap_uniq)
-            uniq_lbls = tf.matmul(softmax_matrix_uniq, Yg_overlap)
+            uniq_reprs = torch.matmul(softmax_matrix_uniq, Ug_overlap_uniq)
+            uniq_lbls = torch.matmul(softmax_matrix_uniq, Yg_overlap)
 
         if using_comm:
-            comm_reprs = tf.matmul(softmax_matrix_comm, Ug_all_comm)
-            comm_lbls = tf.matmul(softmax_matrix_comm, Yg_all)
+            comm_reprs = torch.matmul(softmax_matrix_comm, Ug_all_comm)
+            comm_lbls = torch.matmul(softmax_matrix_comm, Yg_all)
 
         return uniq_reprs, uniq_lbls, comm_reprs, comm_lbls
 
@@ -141,9 +145,9 @@ class AttentionBasedRepresentationEstimator(object):
         uniq_lbls = None
         comm_lbls = None
         if using_uniq:
-            uniq_lbls = tf.matmul(softmax_matrix_uniq, Yg_overlap)
+            uniq_lbls = torch.matmul(softmax_matrix_uniq, Yg_overlap)
         if using_comm:
-            comm_lbls = tf.matmul(softmax_matrix_comm, Yg_all)
+            comm_lbls = torch.matmul(softmax_matrix_comm, Yg_all)
 
         return uniq_lbls, comm_lbls
 
@@ -174,11 +178,11 @@ class AttentionBasedRepresentationEstimator(object):
         uniq_reprs, uniq_lbls, comm_reprs, comm_lbls = result
         if using_uniq and using_comm:
             combine_lbls = 0.5 * uniq_lbls + 0.5 * comm_lbls
-            labeled_reprs = tf.concat([uniq_reprs, comm_reprs, combine_lbls], axis=1)
+            labeled_reprs = torch.cat([uniq_reprs, comm_reprs, combine_lbls], dim=1)
         elif using_uniq:
-            labeled_reprs = tf.concat([uniq_reprs, uniq_lbls], axis=1)
+            labeled_reprs = torch.cat([uniq_reprs, uniq_lbls], dim=1)
         else:
-            labeled_reprs = tf.concat([comm_reprs, comm_lbls], axis=1)
+            labeled_reprs = torch.cat([comm_reprs, comm_lbls], dim=1)
 
         return labeled_reprs
 
@@ -209,7 +213,7 @@ class AttentionBasedRepresentationEstimator(object):
         uniq_reprs, uniq_lbls, comm_reprs, comm_lbls = result
         if using_uniq and using_comm:
             combine_lbls = 0.5 * uniq_lbls + 0.5 * comm_lbls
-            reprs = tf.concat([uniq_reprs, comm_reprs], axis=1)
+            reprs = torch.cat([uniq_reprs, comm_reprs], dim=1)
             return reprs, combine_lbls, uniq_lbls, comm_lbls
         elif using_uniq:
             return uniq_reprs, uniq_lbls, uniq_lbls, comm_lbls
@@ -221,67 +225,49 @@ class AttentionBasedRepresentationEstimator(object):
                                     n_class,
                                     fed_label_upper_bound=0.5,
                                     host_label_upper_bound=0.5):
-        dynamic_array = tensor_array_ops.TensorArray(
-            dtype=tf.float32,
-            size=0,
-            dynamic_size=True,
-            clear_after_read=False)
 
-        def cond(i, j, row):
-            return j < tf.shape(input=reprs_w_candidate_labels)[0]
+        sel_reprs = list()
+        for repr_w_candidate_lbl in reprs_w_candidate_labels:
 
-        def body(i, j, row):
-            print("-------> iter {0}".format(j))
-            reprs = reprs_w_candidate_labels[j, :-3 * n_class]
-
+            reprs = repr_w_candidate_lbl[:-3 * n_class]
             # fetch fed labels
-            condidate_lbl_1 = reprs_w_candidate_labels[j, -n_class:]
+            candidate_lbl_fed = repr_w_candidate_lbl[-n_class:]
             # fetch guest_lr labels
-            condidate_lbl_2 = reprs_w_candidate_labels[j, -2 * n_class:-n_class]
+            candidate_lbl_guest = repr_w_candidate_lbl[-2 * n_class:-n_class]
             # fetch host_lr labels
-            condidate_lbl_3 = reprs_w_candidate_labels[j, -3 * n_class:- 2 * n_class]
+            candidate_lbl_host = repr_w_candidate_lbl[-3 * n_class:- 2 * n_class]
 
-            index_1 = tf.argmax(input=condidate_lbl_1)
-            index_2 = tf.argmax(input=condidate_lbl_2)
-            index_3 = tf.argmax(input=condidate_lbl_3)
+            print("[DEBUG] repr", reprs.shape)
+            print("[DEBUG] candidate_lbl_fed", candidate_lbl_fed.shape)
+            print("[DEBUG] candidate_lbl_guest", candidate_lbl_guest.shape)
+            print("[DEBUG] candidate_lbl_host", candidate_lbl_host.shape)
 
-            is_same_class_1 = tf.math.equal(index_1, index_2)
-            is_same_class_2 = tf.math.equal(index_2, index_3)
+            index_1 = torch.argmax(input=candidate_lbl_fed)
+            index_2 = torch.argmax(input=candidate_lbl_guest)
+            index_3 = torch.argmax(input=candidate_lbl_host)
 
-            prob_1 = condidate_lbl_1[index_1]
-            # prob_2 = condidate_lbl_2[index_2]
-            prob_3 = condidate_lbl_3[index_3]
-            is_beyond_threshold = tf.math.logical_and(tf.math.greater(prob_1, fed_label_upper_bound),
-                                                      tf.math.greater(prob_3, host_label_upper_bound))
-            is_same_class = tf.math.logical_and(is_same_class_1, is_same_class_2)
-            to_gather = tf.math.logical_and(is_beyond_threshold, is_same_class)
+            is_same_class_1 = torch.eq(index_1, index_2)
+            is_same_class_2 = torch.eq(index_2, index_3)
 
-            def f1():
-                # selected
-                print("---> f1:selected")
+            prob_1 = candidate_lbl_fed[index_1]
+            prob_2 = candidate_lbl_guest[index_2]
+            prob_3 = candidate_lbl_host[index_3]
 
-                a_reprs = tf.expand_dims(reprs, axis=0)
-                fed_condidate_lbl = reprs_w_candidate_labels[j, -n_class:]
-                a_condidate_lbl_1 = tf.expand_dims(fed_condidate_lbl, axis=0)
-                a_condidate_lbl_1 = sharpen(a_condidate_lbl_1, temperature=0.1)
-                concate_reprs_w_lbls = tf.concat((a_reprs, a_condidate_lbl_1), axis=1)
-                # print("concate_reprs_w_lbls:", concate_reprs_w_lbls)
-                row_update = row.write(i, concate_reprs_w_lbls)
-                # row_update = row.write(i, temp)
-                return i + 1, j + 1, row_update
+            is_beyond_threshold = torch.logical_and(torch.greater(prob_1, fed_label_upper_bound),
+                                                    torch.greater(prob_3, host_label_upper_bound))
+            is_same_class = torch.logical_and(is_same_class_1, is_same_class_2)
+            to_gather = torch.logical_and(is_beyond_threshold, is_same_class)
 
-            def f2():
-                print("---> f2:unselected")
-                return i, j + 1, row
-
-            i, j, row_update = tf.cond(pred=to_gather, true_fn=f1, false_fn=f2)
-            return [i, j, row_update]
-
-        _, _, list_vals = tf.while_loop(cond=cond, body=body, loop_vars=[0, 0, dynamic_array])
-        return list_vals
-
-    def __repr__(self):
-        return self.__class__.__name__
-
-    def __str__(self):
-        return self.__class__.__name__
+            if to_gather:
+                # candidate_lbl_fed = candidate_lbl_fed.unsqueeze(dim=0)
+                # reprs = reprs.unsqueeze(dim=0)
+                candidate_lbl_fed.unsqueeze_(dim=0)
+                reprs.unsqueeze_(dim=0)
+                s_condidate_lbl_1 = sharpen(candidate_lbl_fed, temperature=0.1)
+                print("[DEBUG] s_condidate_lbl_1:", s_condidate_lbl_1.shape)
+                concate_reprs_w_lbls = torch.cat((reprs, s_condidate_lbl_1), dim=1)
+                print("[DEBUG] concate_reprs_w_lbls:", concate_reprs_w_lbls.shape)
+                sel_reprs.append(concate_reprs_w_lbls)
+            print(f"[DEBUG] len(sel_reprs):{len(sel_reprs)}")
+            sel_reprs_tensor = torch.stack(sel_reprs) if len(sel_reprs) > 0 else None
+            return sel_reprs_tensor

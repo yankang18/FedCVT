@@ -7,15 +7,15 @@ import torch
 import torch.nn.functional as F
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score, roc_auc_score
 
-from pytorch_version.regularization import EarlyStoppingCheckPoint
+from models.regularization import EarlyStoppingCheckPoint
 from param import FederatedModelParam
-from pytorch_version.debug_utils import analyze_estimated_labels
-from pytorch_version.fedmvt_parties import ExpandingVFTLGuest, ExpandingVFTLHost
-from pytorch_version.fedmvt_repr_learner import AttentionBasedRepresentationEstimator, concat_reprs, sharpen
-from pytorch_version.loss_utils import get_shared_reprs_loss, get_orth_reprs_loss, get_alignment_loss, \
+from debug_utils import analyze_estimated_labels
+from fedcvt_parties import ExpandingVFTLGuest, ExpandingVFTLHost
+from fedcvt_repr_learner import AttentionBasedRepresentationEstimator, concat_reprs, sharpen
+from loss import get_shared_reprs_loss, get_orth_reprs_loss, get_alignment_loss, \
     get_label_estimation_loss
-from pytorch_version.models import SoftmaxRegression
-from pytorch_version.utils import convert_to_1d_labels, f_score, transpose
+from models.mlp_models import SoftmaxRegression
+from utils import convert_to_1d_labels, f_score, transpose
 
 
 class VerticalFederatedTransferLearning(object):
@@ -33,7 +33,9 @@ class VerticalFederatedTransferLearning(object):
         self.stop_training = False
         self.fed_lr = None
         self.guest_lr = None
+        self.host_lr = None
         self.debug = debug
+        self.device = model_param.device
 
     def set_representation_estimator(self, repr_estimator):
         self.repr_estimator = repr_estimator
@@ -211,6 +213,7 @@ class VerticalFederatedTransferLearning(object):
 
         # fed_nl_w_ested_guest_reprs_n_candidate_labels is the federated feature representations in which the guest's
         # representations are estimated and three estimated candidate labels.
+        # ==================================================================================================
 
         self.fed_nl_w_ested_guest_reprs_n_candidate_labels = torch.cat(
             [fed_nl_w_guest_ested_reprs,
@@ -452,13 +455,13 @@ class VerticalFederatedTransferLearning(object):
         print("[INFO] loss_weight_dict: {0}".format(loss_weight_dict))
         print("################################################")
 
-        self.fed_lr = SoftmaxRegression(1)
+        self.fed_lr = SoftmaxRegression(1).to(self.device)
         self.fed_lr.build(input_dim=fed_input_dim, n_class=self.n_class, hidden_dim=fed_hidden_dim)
 
-        self.guest_lr = SoftmaxRegression(2)
+        self.guest_lr = SoftmaxRegression(2).to(self.device)
         self.guest_lr.build(input_dim=guest_input_dim, n_class=self.n_class, hidden_dim=guest_hidden_dim)
 
-        self.host_lr = SoftmaxRegression(3)
+        self.host_lr = SoftmaxRegression(3).to(self.device)
         self.host_lr.build(input_dim=host_input_dim, n_class=self.n_class, hidden_dim=host_hidden_dim)
 
         self.criteria = torch.nn.CrossEntropyLoss()
@@ -752,8 +755,12 @@ class VerticalFederatedTransferLearning(object):
                host_block_indices=None):
 
         self.to_train_mode()
+        self.guest_optimizer.zero_grad()
+        self.host_optimizer.zero_grad()
+        self.fed_optimizer.zero_grad()
+
         loss_weight_dict = self.model_param.loss_weight_dict
-        learning_rate = self.model_param.learning_rate
+        # learning_rate = self.model_param.learning_rate
 
         self.vftl_guest.prepare_local_data(overlap_batch_range=overlap_batch_range,
                                            non_overlap_batch_range=guest_non_overlap_batch_range,
@@ -765,6 +772,7 @@ class VerticalFederatedTransferLearning(object):
                                           block_idx=host_block_idx)
         # train_feed_dict.update(train_host_feed_dict)
 
+        # ===================================================================================================
         # weights for auxiliary losses, which include:
         # (1) loss for shared representations between host and guest
         # (2) (3) loss for orthogonal representation for host and guest respectively
@@ -772,27 +780,18 @@ class VerticalFederatedTransferLearning(object):
         # (5) loss for distance between estimated guest overlap representation and true guest representation
         # (6) loss for distance between estimated host overlap representation and true host representation
         # (7) loss for distance between shared-repr-estimated host label and uniq-repr-estimated host label
+        # ===================================================================================================
 
         train_components, repr_list = self._interact()
         self.fed_reprs, guest_reprs, host_reprs, self.fed_Y, guest_Y, host_Y, self.loss_dict = train_components
         fed_overlap_reprs, fed_nl_w_host_ested_reprs, fed_nl_w_guest_ested_reprs, guest_nl_reprs = repr_list
 
-        # guest_model_params = list(self.guest_lr.parameters()) + self.vftl_guest.get_model_parameters()
-        # guest_optimizer = torch.optim.Adam(params=guest_model_params, lr=learning_rate)
         guest_logits = self.guest_lr.forward(guest_reprs)
-
-        # print("guest_logits shape:", guest_logits, guest_logits.shape)
-        # print("guest_Y shape:", guest_Y.shape, guest_Y)
         guest_loss = self.criteria(guest_logits, torch.argmax(guest_Y, dim=1))
 
-        # host_model_params = list(self.host_lr.parameters()) + self.vftl_host.get_model_parameters()
-        # host_optimizer = torch.optim.Adam(params=host_model_params, lr=learning_rate)
         host_logits = self.host_lr.forward(host_reprs)
         host_loss = self.criteria(host_logits, torch.argmax(host_Y, dim=1))
 
-        # fed_model_params = self.fed_lr.parameters() + self.vftl_host.get_model_parameters() + \
-        #                    self.vftl_guest.get_model_parameters()
-        # fed_optimizer = torch.optim.Adam(params=fed_model_params, lr=learning_rate)
         fed_logits = self.fed_lr.forward(self.fed_reprs)
         fed_objective_loss = self.criteria(fed_logits, torch.argmax(self.fed_Y, dim=1))
 
@@ -804,10 +803,6 @@ class VerticalFederatedTransferLearning(object):
                 fed_objective_loss = fed_objective_loss + loss_fac_weight * loss_fac
 
         all_loss = guest_loss + host_loss + fed_objective_loss
-
-        self.guest_optimizer.zero_grad()
-        self.host_optimizer.zero_grad()
-        self.fed_optimizer.zero_grad()
 
         all_loss.backward()
         # guest_loss.backward()
@@ -1032,7 +1027,7 @@ class VerticalFederatedTransferLearning(object):
                 fed_loss = loss_dict['fed_loss']
                 loss_list.append(fed_loss)
 
-                print("[INFO] ===> ep:{0}, iter:{1}, ol_batch_idx:{2}, nol_guest_batch_idx:{3}, nol_host_batch_idx:{4}, "
+                print("[INFO] ==> ep:{0}, iter:{1}, ol_batch_idx:{2}, nol_guest_batch_idx:{3}, nol_host_batch_idx:{4}, "
                       "fed_loss:{5}".format(i, iter, ol_batch_idx, nol_guest_batch_idx, nol_host_batch_idx, fed_loss))
                 print("[INFO] ol_block_idx:{0}, nol_guest_block_idx:{1}, nol_host_block_idx:{2}, "
                       "ested_guest_block_idx:{3}, ested_host_block_idx:{4}".format(ol_block_idx,

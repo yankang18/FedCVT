@@ -1,9 +1,9 @@
 import pickle
 
 import numpy as np
-import tensorflow as tf
+import torch
+import torch.nn.functional as F
 
-from models.autoencoder import FeatureExtractor
 from param import PartyModelParam
 
 
@@ -20,32 +20,50 @@ class ExpandingVFTLParty(object):
         self.local_model = None
         self.local_model_prime = None
 
-    def set_model(self, feature_extractor: FeatureExtractor, feature_extractor_prime: FeatureExtractor):
+        self.X_all_in = None
+        self.X_overlap_in = None
+        self.X_non_overlap_in = None
+
+    def set_model(self, feature_extractor, feature_extractor_prime):
         self.local_model = feature_extractor
         self.local_model_prime = feature_extractor_prime
 
-    def set_session(self, sess):
-        self.local_model.set_session(sess)
-        self.local_model_prime.set_session(sess)
-
     def get_model_parameters(self):
-        return self.local_model.get_model_parameters(), self.local_model_prime.get_model_parameters()
+        return list(self.local_model.parameters()) + list(self.local_model_prime.parameters())
+
+    def to_train_mode(self):
+        self.local_model.train()
+        self.local_model_prime.train()
+
+    def to_eval_mode(self):
+        self.local_model.eval()
+        self.local_model_prime.eval()
 
     def fetch_feat_reprs(self, normalize=True):
-        U_all_uniq = self.local_model.get_all_hidden_reprs()
-        U_all_comm = self.local_model_prime.get_all_hidden_reprs()
-        U_overlap_uniq = self.local_model.get_overlap_hidden_reprs()
-        U_overlap_comm = self.local_model_prime.get_overlap_hidden_reprs()
-        U_non_overlap_uniq = self.local_model.get_non_overlap_hidden_reprs()
-        U_non_overlap_comm = self.local_model_prime.get_non_overlap_hidden_reprs()
+        # TODO: representation come from local models
+        # U_all_uniq = self.local_model.get_all_hidden_reprs()
+        # U_all_comm = self.local_model_prime.get_all_hidden_reprs()
+        # U_overlap_uniq = self.local_model.get_overlap_hidden_reprs()
+        # U_overlap_comm = self.local_model_prime.get_overlap_hidden_reprs()
+        # U_non_overlap_uniq = self.local_model.get_non_overlap_hidden_reprs()
+        # U_non_overlap_comm = self.local_model_prime.get_non_overlap_hidden_reprs()
+
+        # print(f"ExpandingVFTLParty.X_all_in:{self.X_all_in.shape}")
+        U_all_uniq = self.local_model(self.X_all_in)
+        U_all_comm = self.local_model_prime(self.X_all_in)
+        U_overlap_uniq = self.local_model(self.X_overlap_in)
+        U_overlap_comm = self.local_model_prime(self.X_overlap_in)
+        U_non_overlap_uniq = self.local_model(self.X_non_overlap_in)
+        U_non_overlap_comm = self.local_model_prime(self.X_non_overlap_in)
 
         if normalize:
-            U_all_uniq = tf.math.l2_normalize(U_all_uniq, axis=1)
-            U_all_comm = tf.math.l2_normalize(U_all_comm, axis=1)
-            U_overlap_uniq = tf.math.l2_normalize(U_overlap_uniq, axis=1)
-            U_overlap_comm = tf.math.l2_normalize(U_overlap_comm, axis=1)
-            U_non_overlap_uniq = tf.math.l2_normalize(U_non_overlap_uniq, axis=1)
-            U_non_overlap_comm = tf.math.l2_normalize(U_non_overlap_comm, axis=1)
+            print("[DEBUG] normalize features.")
+            U_all_uniq = F.normalize(U_all_uniq, p=2.0, dim=1)
+            U_all_comm = F.normalize(U_all_comm, p=2.0, dim=1)
+            U_overlap_uniq = F.normalize(U_overlap_uniq, p=2.0, dim=1)
+            U_overlap_comm = F.normalize(U_overlap_comm, p=2.0, dim=1)
+            U_non_overlap_uniq = F.normalize(U_non_overlap_uniq, p=2.0, dim=1)
+            U_non_overlap_comm = F.normalize(U_non_overlap_comm, p=2.0, dim=1)
 
         return (U_all_uniq, U_all_comm), (U_non_overlap_uniq, U_non_overlap_comm), (U_overlap_uniq, U_overlap_comm)
 
@@ -176,19 +194,19 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
         self.data_loader = data_loader
         self.n_class = party_model_param.n_class
         self.apply_dropout = party_model_param.apply_dropout
+        self.device = party_model_param.device
 
-        self.Y_all_in_for_est = tf.compat.v1.placeholder(tf.float32, shape=(None, self.n_class),
-                                                         name="labels_input_all_for_est")
-        self.Y_overlap_in_for_est = tf.compat.v1.placeholder(tf.float32, shape=(None, self.n_class),
-                                                             name="labels_input_overlap_for_est")
+        self.Y_all_in_for_est = None
+        self.Y_overlap_in_for_est = None
 
-        self.Y_all_in = tf.compat.v1.placeholder(tf.float32, shape=(None, self.n_class), name="labels_input_all")
-        self.Y_overlap_in = tf.compat.v1.placeholder(tf.float32, shape=(None, self.n_class),
-                                                     name="labels_input_overlap")
-        self.Y_non_overlap_in = tf.compat.v1.placeholder(tf.float32, shape=(None, self.n_class),
-                                                         name="labels_input_non_overlap")
-        self.guest_train_labels = tf.compat.v1.placeholder(tf.float32, shape=(None, self.n_class),
-                                                           name="guest_train_labels_input")
+        self.Y_all_in = None
+        self.Y_overlap_in = None
+        self.Y_non_overlap_in = None
+
+        # self.X_all_in = None
+        # self.X_overlap_in = None
+        # self.X_non_overlap_in = None
+
         self.current_ol_block_idx = None
         self.current_nol_block_idx = None
         self.current_ested_block_idx = None
@@ -269,10 +287,19 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
     def get_Y_non_overlap(self):
         return self.Y_non_overlap_in
 
+    def get_X_all(self):
+        return self.X_all_in
+
+    def get_X_overlap(self):
+        return self.X_overlap_in
+
+    def get_X_non_overlap(self):
+        return self.X_non_overlap_in
+
     def get_number_of_class(self):
         return self.n_class
 
-    def get_train_feed_dict(self, overlap_batch_range, non_overlap_batch_range, block_indices=None, block_idx=None):
+    def prepare_local_data(self, overlap_batch_range, non_overlap_batch_range, block_indices=None, block_idx=None):
         if block_indices is None and block_idx is None:
             raise Exception("Both block_indices and block_idx are None")
 
@@ -313,40 +340,53 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
         # Y_non_overlap = self.Y_train[non_overlap_batch_indices, :]
         # Y_all_ref_block = self.Y_train[block_indices]
 
-        print("[DEBUG] Guest X_overlap: {0}".format(len(X_overlap)))
-        print("[DEBUG] Guest X_non_overlap: {0}".format(len(X_non_overlap)))
-        print("[DEBUG] Guest X_all_ref_block: {0}".format(len(X_all_ref_block)))
-        print("[DEBUG] Guest Y_overlap: {0}".format(len(Y_overlap)))
-        print("[DEBUG] Guest Y_all_ref_block: {0}".format(len(Y_all_ref_block)))
-        print("[DEBUG] Guest Y_non_overlap: {0}".format(len(Y_non_overlap)))
+        # for CNN
+        # X_all_ref_block = X_all_ref_block.transpose(0, 3, 1, 2)
+        # X_overlap = X_overlap.transpose(0, 3, 1, 2)
+        # X_non_overlap = X_non_overlap.transpose(0, 3, 1, 2)
+
+        print("[DEBUG] Guest X_overlap: {0}.".format(len(X_overlap), X_overlap.shape))
+        print("[DEBUG] Guest X_non_overlap: {0}.".format(len(X_non_overlap), X_non_overlap.shape))
+        print("[DEBUG] Guest X_all_ref_block: {0}.".format(len(X_all_ref_block), X_all_ref_block.shape))
+        print("[DEBUG] Guest Y_overlap: {0}.".format(len(Y_overlap), Y_overlap.shape))
+        print("[DEBUG] Guest Y_all_ref_block: {0}.".format(len(Y_all_ref_block), Y_all_ref_block.shape))
+        print("[DEBUG] Guest Y_non_overlap: {0}.".format(len(Y_non_overlap), Y_all_ref_block.shape))
 
         # Y_overlap_for_est = Y_overlap - 1e-10
         # Y_all_ref_block_for_est = Y_all_ref_block - 1e-10
-        Y_overlap_for_est = Y_overlap - 0.0
-        Y_all_ref_block_for_est = Y_all_ref_block - 0.0
 
-        feed_dict = {self.Y_all_in: Y_all_ref_block,
-                     self.Y_overlap_in: Y_overlap,
-                     self.Y_non_overlap_in: Y_non_overlap,
-                     self.Y_all_in_for_est: Y_all_ref_block_for_est,
-                     self.Y_overlap_in_for_est: Y_overlap_for_est,
-                     self.local_model.get_all_samples(): X_all_ref_block,
-                     self.local_model.get_overlap_samples(): X_overlap,
-                     self.local_model.get_non_overlap_samples(): X_non_overlap,
-                     self.local_model.get_is_train(): True,
-                     self.local_model_prime.get_all_samples(): X_all_ref_block,
-                     self.local_model_prime.get_overlap_samples(): X_overlap,
-                     self.local_model_prime.get_non_overlap_samples(): X_non_overlap,
-                     self.local_model_prime.get_is_train(): True}
+        self.Y_all_in = torch.tensor(Y_all_ref_block).float().to(self.device)
+        self.Y_overlap_in = torch.tensor(Y_overlap).float().to(self.device)
+        self.Y_non_overlap_in = torch.tensor(Y_non_overlap).float().to(self.device)
 
-        if self.apply_dropout:
-            feed_dict_others = {self.local_model.get_is_train(): True,
-                                self.local_model.get_keep_probability(): self.keep_probability,
-                                self.local_model_prime.get_is_train(): True,
-                                self.local_model_prime.get_keep_probability(): self.keep_probability}
-            feed_dict.update(feed_dict_others)
+        self.X_all_in = torch.tensor(X_all_ref_block).float().to(self.device)
+        self.X_overlap_in = torch.tensor(X_overlap).float().to(self.device)
+        self.X_non_overlap_in = torch.tensor(X_non_overlap).float().to(self.device)
 
-        return feed_dict
+        self.Y_all_in_for_est = torch.tensor(Y_all_ref_block).float().to(self.device)
+        self.Y_overlap_in_for_est = torch.tensor(Y_overlap).float().to(self.device)
+
+        # feed_dict = {self.Y_all_in: Y_all_ref_block,
+        #              self.Y_overlap_in: Y_overlap,
+        #              self.Y_non_overlap_in: Y_non_overlap,
+        #              self.Y_all_in_for_est: Y_all_ref_block_for_est,
+        #              self.Y_overlap_in_for_est: Y_overlap_for_est,
+        #              self.local_model.get_all_samples(): X_all_ref_block,
+        #              self.local_model.get_overlap_samples(): X_overlap,
+        #              self.local_model.get_non_overlap_samples(): X_non_overlap,
+        #              self.local_model.get_is_train(): True,
+        #              self.local_model_prime.get_all_samples(): X_all_ref_block,
+        #              self.local_model_prime.get_overlap_samples(): X_overlap,
+        #              self.local_model_prime.get_non_overlap_samples(): X_non_overlap,
+        #              self.local_model_prime.get_is_train(): True}
+        #
+        # if self.apply_dropout:
+        #     feed_dict_others = {self.local_model.get_is_train(): True,
+        #                         self.local_model.get_keep_probability(): self.keep_probability,
+        #                         self.local_model_prime.get_is_train(): True,
+        #                         self.local_model_prime.get_keep_probability(): self.keep_probability}
+        #     feed_dict.update(feed_dict_others)
+        # return feed_dict
 
     def get_two_sides_predict_feed_dict(self):
         X_test, _ = self.data_loader.retrieve_test_X_y()
@@ -364,6 +404,14 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
             feed_dict.update(feed_dict_others)
 
         return feed_dict
+
+    def predict_on_overlap_data(self):
+        X_test, _ = self.data_loader.retrieve_test_X_y()
+        X_test = X_test.transpose(0, 3, 1, 2)
+        X_test_tenor = torch.tensor(X_test).float()
+        U_overlap_uniq = self.local_model(X_test_tenor)
+        U_overlap_comm = self.local_model_prime(X_test_tenor)
+        return U_overlap_uniq, U_overlap_comm
 
     def get_one_side_predict_feed_dict(self):
         # X_overlap, _ = self.data_loader.retrieve_ol_train_X_y(self.overlap_indices)
@@ -432,8 +480,8 @@ class ExpandingVFTLGuest(ExpandingVFTLParty):
         #     if np.all(Y_overlap_i == 0):
         #         print("Y_overlap_i", idx, Y_overlap_i)
 
-        Y_overlap_for_est = Y_overlap - 0.0
-        Y_all_ref_block_for_est = Y_all_ref_block - 0.0
+        Y_overlap_for_est = Y_overlap
+        Y_all_ref_block_for_est = Y_all_ref_block
 
         # print("### get_assist_host_side_predict_feed_dict")
         # print("X_overlap shape: {0}".format(X_overlap.shape))
@@ -510,6 +558,7 @@ class ExpandingVFTLHost(ExpandingVFTLParty):
         self.data_loader = data_loader
         self.keep_probability = party_model_param.keep_probability
         self.apply_dropout = party_model_param.apply_dropout
+        self.device = party_model_param.device
 
         self.current_ol_block_idx = None
         self.current_nol_block_idx = None
@@ -573,7 +622,7 @@ class ExpandingVFTLHost(ExpandingVFTLParty):
     def get_all_training_sample_size(self):
         return self.data_loader.get_all_training_sample_size()
 
-    def get_train_feed_dict(self, overlap_batch_range, non_overlap_batch_range, block_indices=None, block_idx=None):
+    def prepare_local_data(self, overlap_batch_range, non_overlap_batch_range, block_indices=None, block_idx=None):
         if block_indices is None and block_idx is None:
             raise Exception("Both block_indices and block_idx are None")
 
@@ -589,39 +638,52 @@ class ExpandingVFTLHost(ExpandingVFTLParty):
             X_non_overlap, _ = self.data_loader.retrieve_nol_train_X_y(batch_range=non_overlap_batch_range)
             X_all_ref_block, _ = self.data_loader.retrieve_ested_train_X_y(batch_indices=block_indices)
 
-        print("Host X_non_overlap {0}".format(len(X_non_overlap)))
-        # for idx, X_non_overlap_i in enumerate(X_non_overlap):
-        #     print("host X_non_overlap {0}:{1} with shape {2}".format(idx, X_non_overlap_i.flatten(),
-        #                                                              X_non_overlap_i.shape))
-        #     if idx >= 2:
-        #         break
+        # print("Host X_non_overlap {0}".format(len(X_non_overlap)))
+        # # for idx, X_non_overlap_i in enumerate(X_non_overlap):
+        # #     print("host X_non_overlap {0}:{1} with shape {2}".format(idx, X_non_overlap_i.flatten(),
+        # #                                                              X_non_overlap_i.shape))
+        # #     if idx >= 2:
+        # #         break
+        #
+        # print("Host X_overlap: {0}".format(len(X_overlap)))
+        # # for idx, X_overlap_i in enumerate(X_overlap):
+        # #     print("host X_overlap {0}:{1} with shape {2}".format(idx, X_overlap_i.flatten(), X_overlap_i.shape))
+        # #     if idx >= 2:
+        # #         break
+        #
+        # print("Host X_all_ref_block: {0}".format(len(X_all_ref_block)))
 
-        print("Host X_overlap: {0}".format(len(X_overlap)))
-        # for idx, X_overlap_i in enumerate(X_overlap):
-        #     print("host X_overlap {0}:{1} with shape {2}".format(idx, X_overlap_i.flatten(), X_overlap_i.shape))
-        #     if idx >= 2:
-        #         break
+        # for CNN
+        # X_all_ref_block = X_all_ref_block.transpose(0, 3, 1, 2)
+        # X_overlap = X_overlap.transpose(0, 3, 1, 2)
+        # X_non_overlap = X_non_overlap.transpose(0, 3, 1, 2)
 
-        print("Host X_all_ref_block: {0}".format(len(X_all_ref_block)))
+        print("[DEBUG] Host X_overlap: {0}; {1}".format(len(X_overlap), X_overlap.shape))
+        print("[DEBUG] Host X_non_overlap: {0}; {1}".format(len(X_non_overlap), X_non_overlap.shape))
+        print("[DEBUG] Host X_all_ref_block: {0}; {1}".format(len(X_all_ref_block), X_all_ref_block.shape))
 
-        feed_dict = {
-            self.local_model.get_all_samples(): X_all_ref_block,
-            self.local_model.get_overlap_samples(): X_overlap,
-            self.local_model.get_non_overlap_samples(): X_non_overlap,
-            self.local_model.get_is_train(): True,
-            self.local_model_prime.get_all_samples(): X_all_ref_block,
-            self.local_model_prime.get_overlap_samples(): X_overlap,
-            self.local_model_prime.get_non_overlap_samples(): X_non_overlap,
-            self.local_model_prime.get_is_train(): True}
+        self.X_all_in = torch.tensor(X_all_ref_block).float().to(self.device)
+        self.X_overlap_in = torch.tensor(X_overlap).float().to(self.device)
+        self.X_non_overlap_in = torch.tensor(X_non_overlap).float().to(self.device)
 
-        if self.apply_dropout:
-            feed_dict_others = {self.local_model.get_is_train(): True,
-                                self.local_model.get_keep_probability(): self.keep_probability,
-                                self.local_model_prime.get_is_train(): True,
-                                self.local_model_prime.get_keep_probability(): self.keep_probability}
-            feed_dict.update(feed_dict_others)
-
-        return feed_dict
+        # feed_dict = {
+        #     self.local_model.get_all_samples(): X_all_ref_block,
+        #     self.local_model.get_overlap_samples(): X_overlap,
+        #     self.local_model.get_non_overlap_samples(): X_non_overlap,
+        #     self.local_model.get_is_train(): True,
+        #     self.local_model_prime.get_all_samples(): X_all_ref_block,
+        #     self.local_model_prime.get_overlap_samples(): X_overlap,
+        #     self.local_model_prime.get_non_overlap_samples(): X_non_overlap,
+        #     self.local_model_prime.get_is_train(): True}
+        #
+        # if self.apply_dropout:
+        #     feed_dict_others = {self.local_model.get_is_train(): True,
+        #                         self.local_model.get_keep_probability(): self.keep_probability,
+        #                         self.local_model_prime.get_is_train(): True,
+        #                         self.local_model_prime.get_keep_probability(): self.keep_probability}
+        #     feed_dict.update(feed_dict_others)
+        #
+        # return feed_dict
 
     def get_two_sides_predict_feed_dict(self):
         X_test, _ = self.data_loader.retrieve_test_X_y()
@@ -639,6 +701,14 @@ class ExpandingVFTLHost(ExpandingVFTLParty):
             feed_dict.update(feed_dict_others)
 
         return feed_dict
+
+    def predict_on_overlap_data(self):
+        X_test, _ = self.data_loader.retrieve_test_X_y()
+        X_test = X_test.transpose(0, 3, 1, 2)
+        X_test_tensor = torch.tensor(X_test).float()
+        U_overlap_uniq = self.local_model(X_test_tensor)
+        U_overlap_comm = self.local_model_prime(X_test_tensor)
+        return U_overlap_uniq, U_overlap_comm
 
     def get_one_side_predict_feed_dict(self):
         # print("host get_one_side_predict_feed_dict")

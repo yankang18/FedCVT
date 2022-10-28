@@ -7,7 +7,7 @@ from sklearn.utils import shuffle
 # you need to put the data into following directory.
 all_label_path = "NUS_WIDE/Groundtruth/AllLabels"
 label_path = "NUS_WIDE/Groundtruth/TrainTestLabels/"
-image_features_path = "NUS_WIDE/NUS_WID_Low_Level_Features/Low_Level_Features"
+image_features_path = "NUS_WIDE/Low_Level_Features/"
 text_tag_path = "NUS_WIDE/NUS_WID_Tags/"
 
 
