@@ -3,10 +3,10 @@ import json
 import torch
 import torch.backends.cudnn as cudnn
 
-from param import PartyModelParam, FederatedModelParam
-from fedcvt_parties import ExpandingVFTLGuest, ExpandingVFTLHost, ExpandingVFTLDataLoader
-from fedcvt_repr_learner import AttentionBasedRepresentationEstimator
-from fedcvt_train import VerticalFederatedTransferLearning
+from fedcvt_core.param import PartyModelParam, FederatedModelParam
+from fedcvt_core.fedcvt_parties import VFTLGuest, VFLHost, PartyDataLoader
+from fedcvt_core.fedcvt_repr_estimator import AttentionBasedRepresentationEstimator
+from fedcvt_core.fedcvt_train import VerticalFederatedTransferLearning
 from models.cnn_models import ClientVGG8
 from utils import get_timestamp
 
@@ -24,11 +24,11 @@ class ExpandingVFTLGuestConstructor(object):
         nn_prime = ClientVGG8("cnn_0").to(self.device)
         nn = ClientVGG8("cnn_1").to(self.device)
 
-        guest_data_loader = ExpandingVFTLDataLoader(data_folder_path=data_folder,
-                                                    is_guest=True)
+        guest_data_loader = PartyDataLoader(data_folder_path=data_folder,
+                                            is_guest=True)
 
-        self.guest = ExpandingVFTLGuest(party_model_param=self.party_param,
-                                        data_loader=guest_data_loader)
+        self.guest = VFTLGuest(party_model_param=self.party_param,
+                               data_loader=guest_data_loader)
         self.guest.set_model(nn, nn_prime)
 
         with open(data_folder + "meta_data.json", "r") as read_file:
@@ -59,17 +59,17 @@ class ExpandingVFTLHostConstructor(object):
         self.party_param = party_param
         self.device = party_param.device
 
-    def build(self, data_folder, input_shape):
+    def build(self, data_folder):
         print("Host Setup")
 
         nn_prime = ClientVGG8("cnn_2").to(self.device)
         nn = ClientVGG8("cnn_3").to(self.device)
 
-        host_data_loader = ExpandingVFTLDataLoader(data_folder_path=data_folder,
-                                                   is_guest=False)
+        host_data_loader = PartyDataLoader(data_folder_path=data_folder,
+                                           is_guest=False)
 
-        self.host = ExpandingVFTLHost(party_model_param=self.party_param,
-                                      data_loader=host_data_loader)
+        self.host = VFLHost(party_model_param=self.party_param,
+                            data_loader=host_data_loader)
         self.host.set_model(nn, nn_prime)
 
         with open(data_folder + "meta_data.json", "r") as read_file:
@@ -117,8 +117,10 @@ if __name__ == "__main__":
     # configuration
     combine_axis = 1
 
-    guest_model_param = PartyModelParam(n_class=10, keep_probability=0.75, apply_dropout=True, device=device)
-    host_model_param = PartyModelParam(n_class=10, keep_probability=0.75, apply_dropout=True, device=device)
+    guest_model_param = PartyModelParam(n_class=10, keep_probability=0.75, apply_dropout=True,
+                                        data_type="img", device=device)
+    host_model_param = PartyModelParam(n_class=10, keep_probability=0.75, apply_dropout=True,
+                                       data_type="img", device=device)
 
     # print("combine_axis:", combine_axis)
     input_dim = 48 * 2 * 2
