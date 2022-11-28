@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from dataset.ctr_dataset import Criteo2party
+from dataset.ctr_dataset import Criteo2party, Avazu2party
 from fedcvt_core.fedcvt_parties import VFTLGuest, VFLHost, PartyDataLoader
 from fedcvt_core.param import PartyModelParam, FederatedModelParam
 from models.ctr_models import DNNFM
@@ -113,27 +113,26 @@ if __name__ == "__main__":
     data_dir = "../../dataset/"
     input_dims = [11, 10]
     num_classes = 2
-    sub_data_dir = "criteo"
+    # sub_data_dir = "criteo"
+    sub_data_dir = "avazu"
     data_dir = os.path.join(data_dir, sub_data_dir)
-    criteo_train = Criteo2party(data_dir=data_dir, data_type='Train', k=2, input_size=32)
-    criteo_test = Criteo2party(data_dir=data_dir, data_type='Test', k=2, input_size=32)
-    x_train, y_train = criteo_train.get_data()
-    x_test, y_test = criteo_test.get_data()
-    col_names = criteo_train.feature_list
+    # data_train = Criteo2party(data_dir=data_dir, data_type='Train', k=2, input_size=32)
+    # data_test = Criteo2party(data_dir=data_dir, data_type='Test', k=2, input_size=32)
+    data_train = Avazu2party(data_dir, 'Train', 2, 32)
+    data_test = Avazu2party(data_dir, 'Test', 2, 32)
+    x_train, y_train = data_train.get_data()
+    x_test, y_test = data_test.get_data()
+    col_names = data_train.feature_list
 
     X_guest_train = np.array(x_train[0])
     X_host_train = np.array(x_train[1])
-    # Y_train = np.array(y_train).reshape(-1, 1)
     Y_train = np.array(y_train)
-    # print("Y_train 1:", Y_train)
-    Y_train = np.eye(2)[Y_train]
-    # print("Y_train 2:", Y_train)
+    Y_train = np.eye(2)[Y_train]  # convert to one hot vectors
 
     X_guest_test = np.array(x_test[0])
     X_host_test = np.array(x_test[1])
-    # Y_test = np.array(y_test).reshape(-1, 1)
     Y_test = np.array(y_test)
-    Y_test = np.eye(2)[Y_test]
+    Y_test = np.eye(2)[Y_test]  # convert to one hot vectors
 
     print("### original data shape")
     print("X_guest_train shape", X_guest_train.shape)
@@ -147,7 +146,7 @@ if __name__ == "__main__":
     # Prepare optimizer hyper-parameters
     # =====================================
 
-    learning_rate_list = [0.005]
+    learning_rate_list = [0.001]
     # learning_rate_list = [0.01]
 
     optim_args = dict()
@@ -163,19 +162,21 @@ if __name__ == "__main__":
     estimation_block_size = 5000
     # overlap_sample_batch_size = 128
     # non_overlap_sample_batch_size = 128
-    overlap_sample_batch_size = 256
-    non_overlap_sample_batch_size = 256
+    # overlap_sample_batch_size = 256
+    # non_overlap_sample_batch_size = 256
+    overlap_sample_batch_size = 512
+    non_overlap_sample_batch_size = 512
     sharpen_temperature = 0.5
     is_hetero_reprs = False
 
     # label_prob_sharpen_temperature = 1.0
     # fed_label_prob_threshold = 0.5
     # host_label_prob_threshold = 0.5
-    label_prob_sharpen_temperature = 0.5
-    fed_label_prob_threshold = 0.7
-    host_label_prob_threshold = 0.7
+    label_prob_sharpen_temperature = 0.1
+    fed_label_prob_threshold = 0.9
+    host_label_prob_threshold = 0.9
 
-    num_overlap_list = [4000]
+    num_overlap_list = [600]
     # num_overlap_list = [500]
     training_args = dict()
     training_args["epoch"] = epoch
