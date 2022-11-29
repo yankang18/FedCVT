@@ -39,8 +39,8 @@ class VFTLGuestConstructor(object):
 
         guest_data_loader = PartyDataLoader(data_folder_path=data_folder,
                                             is_guest=True,
-                                            X_ol_train=X_train[overlap_indices],
-                                            Y_ol_train=Y_train[overlap_indices],
+                                            X_ll_train=X_train[overlap_indices],
+                                            Y_ll_train=Y_train[overlap_indices],
                                             X_nol_train=X_train[guest_non_overlap_indices],
                                             Y_nol_train=Y_train[guest_non_overlap_indices],
                                             X_ested_train=X_train[guest_all_indices],
@@ -82,7 +82,7 @@ class VFTLHostConstructor(object):
 
         host_data_loader = PartyDataLoader(data_folder_path=data_folder,
                                            is_guest=False,
-                                           X_ol_train=X_train[overlap_indices],
+                                           X_ll_train=X_train[overlap_indices],
                                            X_nol_train=X_train[host_non_overlap_indices],
                                            X_ested_train=X_train[host_all_indices],
                                            X_test=X_test)
