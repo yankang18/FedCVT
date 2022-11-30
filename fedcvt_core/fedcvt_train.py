@@ -123,17 +123,18 @@ class VerticalFederatedTransferLearning(object):
         #     W_hg = self._create_transform_matrix(host_comm_dim, guest_comm_dim)
         #     print("Using transform matrix with shape:", W_hg.shape)
 
-        Y_ll_overlap = self.vftl_guest.get_Y_overlap()
+        Y_ll_overlap = self.vftl_guest.get_Y_ll_overlap()
         Y_guest_non_overlap = self.vftl_guest.get_Y_non_overlap()
 
-        Y_overlap_for_estimation = self.vftl_guest.get_Y_overlap_for_est()
+        Y_ll_overlap_for_estimation = self.vftl_guest.get_Y_ll_overlap_for_est()
         Y_all_for_estimation = self.vftl_guest.get_Y_all_for_est()
 
         # ===============================================
         # estimate representations for missing features
         # ===============================================
 
-        # estimate feature representations of missing samples of host corresponding to non-overlap samples of guest.
+        # estimate feature representations of missing samples of host corresponding
+        # to non-overlap samples of guest.
         Uh_non_overlap_ested_reprs = self.repr_estimator.estimate_host_reprs_for_guest_party(
             Ug_non_overlap_comm,
             Ug_non_overlap_uniq,
@@ -153,7 +154,7 @@ class VerticalFederatedTransferLearning(object):
             Uh_ll_overlap_uniq,
             Ug_ll_overlap_uniq,
             Ug_all_comm,
-            Y_overlap_for_estimation,
+            Y_ll_overlap_for_estimation,
             Y_all_for_estimation,
             sharpen_tempature=sharpen_temp,
             W_hg=W_hg,
@@ -332,7 +333,7 @@ class VerticalFederatedTransferLearning(object):
             Uh_uniq=Uh_all_uniq,
             Uh_overlap_uniq=Uh_ll_overlap_uniq,
             Ug_all_comm=Ug_all_comm,
-            Yg_overlap=Y_overlap_for_estimation,
+            Yg_overlap=Y_ll_overlap_for_estimation,
             Yg_all=Y_all_for_estimation,
             sharpen_tempature=sharpen_temp,
             W_hg=W_hg,
@@ -357,7 +358,7 @@ class VerticalFederatedTransferLearning(object):
                                                                                         Uh_comm=Uh_ll_overlap_comm,
                                                                                         Ug_overlap_uniq=Ug_ll_overlap_uniq,
                                                                                         Ug_all_comm=Ug_all_comm,
-                                                                                        Yg_overlap=Y_overlap_for_estimation,
+                                                                                        Yg_overlap=Y_ll_overlap_for_estimation,
                                                                                         Yg_all=Y_all_for_estimation,
                                                                                         sharpen_tempature=sharpen_temp,
                                                                                         W_hg=W_hg,
@@ -372,7 +373,7 @@ class VerticalFederatedTransferLearning(object):
         #                                                                                     Uh_comm=Uh_non_overlap_comm,
         #                                                                                     Ug_ll_overlap_uniq=Ug_ll_overlap_uniq,
         #                                                                                     Ug_all_comm=Ug_all_comm,
-        #                                                                                     Yg_overlap=Y_overlap_for_estimation,
+        #                                                                                     Yg_overlap=Y_ll_overlap_for_estimation,
         #                                                                                     Yg_all=Y_all_for_estimation,
         #                                                                                     sharpen_tempature=sharpen_temp,
         #                                                                                     W_hg=W_hg,
