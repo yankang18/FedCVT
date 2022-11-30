@@ -81,9 +81,21 @@ class VerticalFederatedTransferLearning(object):
         Ug_non_overlap_uniq, Ug_non_overlap_comm = Ug_non_overlap_
         Ug_ll_overlap_uniq, Ug_ll_overlap_comm = Ug_ll_overlap_
 
+        # TODO
+        if Ug_ul_overlap_ is not None:
+            Ug_ul_overlap_uniq, Ug_ul_overlap_comm = Ug_ul_overlap_
+            Ug_ol_overlap_uniq = torch.cat([Ug_ll_overlap_uniq, Ug_ul_overlap_uniq], dim=0)
+            Ug_ol_overlap_comm = torch.cat([Ug_ll_overlap_comm, Ug_ul_overlap_comm], dim=0)
+
         Uh_all_uniq, Uh_all_comm = Uh_all
         Uh_non_overlap_uniq, Uh_non_overlap_comm = Uh_non_overlap_
         Uh_ll_overlap_uniq, Uh_ll_overlap_comm = Uh_ll_overlap_
+
+        # TODO
+        if Uh_ul_overlap_ is not None:
+            Uh_ul_overlap_uniq, Uh_ul_overlap_comm = Uh_ul_overlap_
+            Uh_ol_overlap_uniq = torch.cat([Uh_ll_overlap_uniq, Uh_ul_overlap_uniq], dim=0)
+            Uh_ol_overlap_comm = torch.cat([Uh_ll_overlap_comm, Uh_ul_overlap_comm], dim=0)
 
         sharpen_temp = self.fed_model_param.sharpen_temperature
         label_prob_sharpen_temperature = self.fed_model_param.label_prob_sharpen_temperature
@@ -914,27 +926,34 @@ class VerticalFederatedTransferLearning(object):
                 # ===================================================
                 # iterate batch index for unlabeled overlapping samples
                 # ===================================================
-                if ul_end >= ul_guest_block_size:
-                    ul_block_idx += 1
-                    if ul_block_idx == ul_block_num:
-                        # if all blocks for unlabeled overlapping samples have been visited,
-                        # start over from the first block
-                        ul_block_idx = 0
-                    ul_guest_block_size = self.vftl_guest.load_ul_block(ul_block_idx)
-                    ul_host_block_size = self.vftl_host.load_ul_block(ul_block_idx)
-                    assert ul_guest_block_size == ul_host_block_size
-                    ul_batch_idx = 0
+                if ul_guest_block_size == 0:
+                    ul_start = 0
+                    ul_end = 0
 
-                ul_start = ul_batch_size * ul_batch_idx
-                ul_end = ul_batch_size * ul_batch_idx + ul_batch_size
+                    if self.debug:
+                        print("[DEBUG] Unlabeled overlapping samples are NOT used.")
+                else:
+                    if ul_end >= ul_guest_block_size:
+                        ul_block_idx += 1
+                        if ul_block_idx == ul_block_num:
+                            # if all blocks for unlabeled overlapping samples have been visited,
+                            # start over from the first block
+                            ul_block_idx = 0
+                        ul_guest_block_size = self.vftl_guest.load_ul_block(ul_block_idx)
+                        ul_host_block_size = self.vftl_host.load_ul_block(ul_block_idx)
+                        assert ul_guest_block_size == ul_host_block_size
+                        ul_batch_idx = 0
 
-                if self.debug:
-                    print("[DEBUG] ul_block_idx:", ul_block_idx)
-                    print("[DEBUG] ul_guest_block_size:", ul_guest_block_size)
-                    print("[DEBUG] ul_host_block_size:", ul_host_block_size)
-                    print("[DEBUG] ul batch from {0} to {1} ".format(ul_start, ul_end))
-                    print(f"[DEBUG] ul_block_count/ul_block_num : {ul_block_idx + 1}/{ul_block_num}")
-                    print(f"[DEBUG] ul_train_data/ul_guest(host)_block_size : {ul_end}/{ul_guest_block_size}")
+                    ul_start = ul_batch_size * ul_batch_idx
+                    ul_end = ul_batch_size * ul_batch_idx + ul_batch_size
+
+                    if self.debug:
+                        print("[DEBUG] ul_block_idx:", ul_block_idx)
+                        print("[DEBUG] ul_guest_block_size:", ul_guest_block_size)
+                        print("[DEBUG] ul_host_block_size:", ul_host_block_size)
+                        print("[DEBUG] ul batch from {0} to {1} ".format(ul_start, ul_end))
+                        print(f"[DEBUG] ul_block_count/ul_block_num : {ul_block_idx + 1}/{ul_block_num}")
+                        print(f"[DEBUG] ul_train_data/ul_guest(host)_block_size : {ul_end}/{ul_guest_block_size}")
 
                 # ========================================================
                 # iterate batch index for non-overlapping samples of guest
