@@ -49,11 +49,12 @@ class EarlyStoppingCheckPoint(object):
             self.best_log = log
             self.best_log["epoch"] = epoch
             self.best_log["batch"] = batch
+            self.best_log["iteration"] = batch
             print("[INFO] find best {0}: {1} at epoch {2}, batch {3}".format(self.monitor, self.best, epoch, batch))
-            if self.file_path is not None:
-                print("[INFO] save model to {0}".format(self.file_path))
-                self.model.save_model(self.file_path)
-                self.model.save_info(self.file_path, self.get_log_info())
+            # if self.file_path is not None:
+            #     print("[INFO] save model to {0}".format(self.file_path))
+            #     self.model.save_model(self.file_path)
+            #     self.model.save_info(self.file_path, self.get_log_info())
             self.wait_iter = 0
             self.best_epoch = epoch
         else:
@@ -83,16 +84,23 @@ class EarlyStoppingCheckPoint(object):
         pp.pprint("log: {0}".format(self.best_log))
         pp.pprint("best {0} list: {1} ".format(self.monitor, self.best_list))
 
+    def save_log_of_best_result(self):
+        if self.file_path is not None:
+            self.model.save_info(self.file_path, self.get_log_info())
+            print("[INFO] saved log to {0}".format(self.file_path))
+        else:
+            print("[INFO] no file path is provided.")
+
     def get_log_info(self):
         log_info = OrderedDict()
         self._add_log_info("fscore", log_info, self.best_log)
         self._add_log_info("all_fscore", log_info, self.best_log)
         self._add_log_info("g_fscore", log_info, self.best_log)
         self._add_log_info("h_fscore", log_info, self.best_log)
-        self._add_log_info("all_acc", log_info, self.best_log)
+        self._add_log_info("acc", log_info, self.best_log)
         self._add_log_info("g_acc", log_info, self.best_log)
         self._add_log_info("h_acc", log_info, self.best_log)
-        self._add_log_info("all_auc", log_info, self.best_log)
+        self._add_log_info("auc", log_info, self.best_log)
         self._add_log_info("g_auc", log_info, self.best_log)
         self._add_log_info("h_auc", log_info, self.best_log)
         self._add_log_info("batch", log_info, self.best_log)

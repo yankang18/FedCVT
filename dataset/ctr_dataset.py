@@ -201,10 +201,10 @@ class Avazu2party():
         #     # test = test.sample(frac=0.5)
         #     data = pd.concat([train, test], axis=0)
 
-        # train_data_file = 'train_10W.txt'
-        # test_data_file = 'test_2W.txt'
-        train_data_file = 'train_20W.txt'
-        test_data_file = 'test_4W.txt'
+        train_data_file = 'train_10W.txt'
+        test_data_file = 'test_2W.txt'
+        # train_data_file = 'train_20W.txt'
+        # test_data_file = 'test_4W.txt'
         train = pd.read_csv(os.path.join(self.data_dir, train_data_file))  # , sep='\t', header=None)
         test = pd.read_csv(os.path.join(self.data_dir, test_data_file))  # , sep='\t', header=None)
         data = pd.concat([train, test], axis=0)
@@ -223,8 +223,10 @@ class Avazu2party():
         if platform.system() == 'Windows':
             train, test = train_test_split(data, test_size=0.2, shuffle=False)
         else:
-            train = data.iloc[:200000]
-            test = data.iloc[200000:]
+            # train = data.iloc[:200000]
+            # test = data.iloc[200000:]
+            train = data.iloc[:100000]
+            test = data.iloc[100000:]
 
         print(train.shape, test.shape)
 
@@ -279,7 +281,7 @@ class Avazu2party():
             self.x.append(x)
 
         print("[DEBUG] party A data shape:{}, party B data shape:{}".format(self.x[0].shape, self.x[1].shape))
-
+        print("x[0], x[1]:", self.x[0].shape, self.x[1].shape)
         del data, train, test
 
     def find_class(self, dir):
@@ -287,6 +289,9 @@ class Avazu2party():
         classes.sort()
         class_to_idx = {classes[i]: i for i in range(len(classes))}
         return classes, class_to_idx
+
+    def get_data(self):
+        return self.x, self.y
 
     def __len__(self):
         return len(self.x[0])

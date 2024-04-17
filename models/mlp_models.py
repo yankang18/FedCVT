@@ -79,9 +79,9 @@ class SoftmaxRegression(nn.Module):
                                                                                                        self.output_dim))
             self.classifier = nn.Sequential(
                 nn.Linear(in_features=self.input_dim, out_features=self.output_dim),
-                # nn.Sigmoid()
+                nn.Sigmoid()
                 # nn.Tanh()
-                nn.LeakyReLU(inplace=True, negative_slope=0.1)
+                # nn.LeakyReLU(inplace=True, negative_slope=0.1)
             )
         else:
             print("[INFO] Softmax Regression applies two layers with hidden_dim:{0}".format(self.hidden_dim))

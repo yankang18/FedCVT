@@ -2,9 +2,10 @@ import torch
 import torch.nn.functional as F
 
 
-def get_shared_reprs_loss(Ug_overlap_comm, Uh_overlap_comm, W_hg=None):
+def get_shared_reprs_loss(Ug_overlap_comm, Uh_overlap_comm):
     shared_reprs_loss = F.mse_loss(Ug_overlap_comm, Uh_overlap_comm, reduction="mean")
-    print("[DEBUG] shared_reprs_loss shape", shared_reprs_loss.shape)
+    # shared_reprs_loss = - F.cosine_similarity(Ug_overlap_comm, Uh_overlap_comm).mean()
+    # print("[DEBUG] shared_reprs_loss shape", shared_reprs_loss.shape)
     return shared_reprs_loss
 
 
@@ -15,6 +16,7 @@ def get_orth_reprs_loss(uniq_reprs, comm_reprs):
 
 
 # def get_orth_reprs_loss(uniq_reprs, comm_reprs):
+# return F.cosine_similarity(uniq_reprs, comm_reprs, dim=-1).mean()
 #     loss = F.mse_loss(uniq_reprs, comm_reprs, reduction="mean")
 #     return loss
 
@@ -24,7 +26,7 @@ def get_label_estimation_loss(pred_soft_lbls, true_lbls):
     pred_soft_lbls is the output from a softmax layer (num_examples x num_classes)
     true_lbls is labels (num_examples x num_classes). Note that y is one-hot encoded vector.
     """
-    log_likelihood = -torch.sum(torch.log(pred_soft_lbls + 1e-9) * true_lbls, dim=1)
+    log_likelihood = -torch.sum(torch.log(pred_soft_lbls + 1e-8) * true_lbls, dim=1)
     # print("2 log_likelihood {0}".format(log_likelihood))
     loss = torch.mean(log_likelihood)
     return loss
@@ -32,7 +34,7 @@ def get_label_estimation_loss(pred_soft_lbls, true_lbls):
 
 def get_alignment_loss(ested_repr, repr):
     return F.mse_loss(ested_repr, repr, reduction="mean")
-
+    # return - F.cosine_similarity(ested_repr, repr, dim=-1).mean()
 
     # @staticmethod
     # def get_shared_reprs_loss(Ug_overlap_comm, Uh_overlap_comm, W_hg=None):

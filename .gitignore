@@ -10,6 +10,9 @@ data/
 credit_g/
 experimental_results/
 spambase/
-training_log_info/
+training_log_info_1/
 benchmark/benchmark_info/
 venv/
+training_log_info/
+training_log_info_1/
+training_log_info_3/

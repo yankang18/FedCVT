@@ -191,3 +191,5 @@ class TwoPartyNusWideDataLoader(object):
         labels = np.array(binary_labels)
         image, text, labels = shuffle(image, text, labels)
         return image, text, labels
+
+

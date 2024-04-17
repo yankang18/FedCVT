@@ -1,23 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# ---
-# @File: bhi_dataset.py
-# @Author: Jiahuan Luo
-# @Institution: Webank, Shenzhen, China
-# @E-mail: jiahuanluo@webank.com
-# @Time: 2022/3/29 11:27
-# ---
-# encoding: utf-8
-
 import os
-import numpy as np
-from PIL import Image, ImageFilter
-import torch
-from torchvision import transforms
 import random
-import cv2
-from itertools import permutations, combinations
 import shutil
+
+# import cv2
+import numpy as np
+import torch
+from PIL import Image, ImageFilter
+from torchvision import transforms
 
 random.seed(0)
 
@@ -25,7 +14,7 @@ random.seed(0)
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
 
-    def __init__(self, sigma=[.1, 2.]):
+    def __init__(self, sigma=(.1, 2.)):
         self.sigma = sigma
 
     def __call__(self, x):
@@ -77,8 +66,9 @@ class BHIDataset2Party:
         self.transform = transforms.Compose([
             transforms.Resize((height, width)),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
             # transforms.Normalize(mean=[0.89156885, 0.89156885, 0.89156885],
-            #                     std=[0.18063523, 0.18063523, 0.18063523]),
+            #                      std=[0.18063523, 0.18063523, 0.18063523]),
         ])
         random.seed(seed)
         patients = [item for item in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, item))]
@@ -91,6 +81,7 @@ class BHIDataset2Party:
             exclude = 9833
         else:
             patients = patients[train_num:]
+            # patients = patients[:-2000]
             exclude = 2458
         for patient in patients:
             for l in [0, 1]:
@@ -109,11 +100,16 @@ class BHIDataset2Party:
         self.x = np.array(self.x)
         self.y = np.array(self.y)
 
+        print("loaded x ,y :", len(self.x), len(self.y))
+
     def find_class(self, dir):
         classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
         classes.sort()
         class_to_idx = {classes[i]: i for i in range(len(classes))}
         return classes, class_to_idx
+
+    def get_data(self):
+        return self.x, self.y
 
     def __len__(self):
         return len(self.x)
@@ -266,19 +262,19 @@ class BHIDataset4Party:
         return data, np.array(labels).ravel()
 
 
-def filter_bhi_dataset(data_dir):
-    target_dir = data_dir + '_filtered'
-    for patient in os.listdir(data_dir):
-        # os.makedirs(os.path.join(target_dir, patient), exist_ok=True)
-        print(patient)
-        for l in ['0', '1']:
-            sub_dir = os.path.join(data_dir, patient, l)
-            target_sub_dir = os.path.join(target_dir, patient, l)
-            os.makedirs(target_sub_dir, exist_ok=True)
-            for im in os.listdir(sub_dir):
-                img_array = cv2.imread(os.path.join(sub_dir, im))
-                if img_array.shape[0] == 50 and img_array.shape[1] == 50:
-                    shutil.copy(os.path.join(sub_dir, im), os.path.join(target_sub_dir, im))
+# def filter_bhi_dataset(data_dir):
+#     target_dir = data_dir + '_filtered'
+#     for patient in os.listdir(data_dir):
+#         # os.makedirs(os.path.join(target_dir, patient), exist_ok=True)
+#         print(patient)
+#         for l in ['0', '1']:
+#             sub_dir = os.path.join(data_dir, patient, l)
+#             target_sub_dir = os.path.join(target_dir, patient, l)
+#             os.makedirs(target_sub_dir, exist_ok=True)
+#             for im in os.listdir(sub_dir):
+#                 img_array = cv2.imread(os.path.join(sub_dir, im))
+#                 if img_array.shape[0] == 50 and img_array.shape[1] == 50:
+#                     shutil.copy(os.path.join(sub_dir, im), os.path.join(target_sub_dir, im))
 
 
 def test_dataset_v2():

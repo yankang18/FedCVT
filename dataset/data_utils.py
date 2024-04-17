@@ -2,6 +2,27 @@ import os
 
 from dataset.bhi_dataset import BHIDataset2Party
 from dataset.ctr_dataset import Avazu2party, Criteo2party
+from torch.utils.data import DataLoader
+
+from typing import Iterator, Iterable, Optional, Sequence, List, TypeVar, Generic, Sized, Union
+
+class ForeverDataIterator(object):
+    """A data iterator that will never stop producing data"""
+
+    def __init__(self, data_loader: DataLoader):
+        self.data_loader = data_loader
+        self.iter = iter(self.data_loader)
+
+    def __next__(self):
+        try:
+            data = next(self.iter)
+        except StopIteration:
+            self.iter = iter(self.data_loader)
+            data = next(self.iter)
+        return data
+
+    def __len__(self):
+        return len(self.data_loader)
 
 
 def get_dataset(dataset_name, **args):
@@ -43,3 +64,26 @@ def get_dataset(dataset_name, **args):
         raise Exception("Does not support dataset [{}] for now.".format(dataset_name))
 
     return train_dst, test_dst, test_dst, input_dims, num_classes, col_names
+
+
+class SubsetSampler(object):
+    r"""Samples elements randomly from a given list of indices, without replacement.
+
+    Args:
+        indices (sequence): a sequence of indices
+        generator (Generator): Generator used in sampling.
+    """
+    indices: Sequence[int]
+
+    def __init__(self, indices: Sequence[int], generator=None) -> None:
+        self.indices = indices
+        self.generator = generator
+
+    def __iter__(self) -> Iterator[int]:
+        # for i in torch.randperm(len(self.indices), generator=self.generator):
+        #     yield self.indices[i]
+        for i in range(len(self.indices)):
+            yield self.indices[i]
+
+    def __len__(self) -> int:
+        return len(self.indices)
