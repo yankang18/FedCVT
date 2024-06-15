@@ -1,5 +1,18 @@
+# FedCVT
+This is the official repo for the paper [FedCVT: Semi-supervised Vertical Federated Learning with Cross-View Training](https://dl.acm.org/doi/10.1145/3510031). The arxiv version is available at [here](https://arxiv.org/abs/2008.10838)
 
+Note that this codebase is the Pytorch implementation of FedCVT. The original implementation is based on Tensorflow. As a result, the empirical results of the Pytorch version may differ in those of the Tensorflow version.
 
+## 1. Methodology
+
+The workflow of FedCVT is described as follows and illustrated in the following figure.
+![FedCVT_method](./figs/overview.png)
+
+## 2. Run the code
+
+The entry points for running the experiments on Avazu, BHI and NUSWIDE are fedcvt_avazu_exp_run.py, fedcvt_bhi_exp_run.py, and fedcvt_nuswide_exp_run.py, respectively. You can change the hyperparameters in these python files.
+
+## 3. Citation
 
 If you think our work is helpful and used our code in your work, please cite our paper:
 ```
