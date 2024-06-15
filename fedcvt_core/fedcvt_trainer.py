@@ -304,20 +304,6 @@ class VerticalFederatedTransferLearning(object):
         self.host_optimizer.step()
         self.fed_optimizer.step()
 
-        # debug_detail = False
-        # if True:
-        #     print("[DEBUG] regularization_loss", regularization_loss)
-        #     print("[DEBUG] mean_pred_loss", mean_pred_loss)
-        #     print("[DEBUG] total ob_loss", ob_loss)
-        #
-        #     if debug_detail:
-        #         guest_nn, guest_nn_prime = self.vftl_guest.get_model_parameters()
-        #         host_nn, host_nn_prime = self.vftl_host.get_model_parameters()
-        #
-        #         print("[DEBUG] guest_nn", guest_nn)
-        #         print("[DEBUG] guest_nn_prime", guest_nn_prime)
-        #         print("[DEBUG] host_nn", host_nn)
-        #         print("[DEBUG] host_nn_prime", host_nn_prime)
         loss_dict = {"fed_loss": fed_objective_loss, "guest_loss": guest_loss, "host_loss": host_loss}
         return loss_dict
 
@@ -395,9 +381,6 @@ class VerticalFederatedTransferLearning(object):
         start_time = time.time()
         epoch = self.fed_training_param.epoch
 
-        # train_loader_list = [ll_data_loader, ul_data_loader, nl_guest_data_loader, nl_host_data_loader,
-        #                      all_guest_data_loader, all_host_data_loader]
-
         ll_data_iterator = ForeverDataIterator(ll_data_loader)
         ul_data_iterator = None if ul_data_loader is None else ForeverDataIterator(ul_data_loader)
         nl_guest_data_iterator = None if nl_guest_data_loader is None else ForeverDataIterator(nl_guest_data_loader)
@@ -414,7 +397,6 @@ class VerticalFederatedTransferLearning(object):
             print("[INFO] ===> start epoch:{0}".format(i))
 
             iteration = 0
-            # for batch_data_list in zip(*train_loader_list):
             for iter_idx in range(num_batches_per_epoch):
 
                 if only_use_ll:
@@ -509,7 +491,6 @@ class VerticalFederatedTransferLearning(object):
 
                     test_ll_acc, test_ll_auc, test_ll_fscore = self.collaborative_predict(data_loader=test_dataloader,
                                                                                           data_type="test")
-                    # test_ll_acc, test_ll_auc, test_ll_fscore = 0, 0, 0
                     test_ll_acc_list.append(test_ll_acc)
                     test_ll_auc_list.append(test_ll_auc)
                     test_ll_fscore_list.append(test_ll_fscore)
@@ -556,39 +537,22 @@ class VerticalFederatedTransferLearning(object):
                 # y_true = y_true.to(self.device)
                 y_true = y_true.cpu()
 
-                # if data_type == "train":
-                #     print("pred guest_ll_x:", guest_x[0], guest_x[0].shape)
-
                 y_true_1hot = F.one_hot(y_true, num_classes=self.n_class).detach().numpy()
                 # print("y_true_1hot:", y_true_1hot)
                 y_true_1hot_list = y_true_1hot_list + [y.tolist() for y in y_true_1hot]
 
-                # print("test guest x:", x[0])
-                # print("test guest y_true:", y_true)
-                # print("test host x:", x[1])
-
                 Ug_overlap_uniq, Ug_overlap_comm = self.vftl_guest.local_predict(guest_x)
                 Uh_overlap_uniq, Uh_overlap_comm = self.vftl_host.local_predict(host_x)
 
-                # if data_type == "train":
-                #     print("pred Ug_overlap_uniq:", Ug_overlap_uniq, Ug_overlap_uniq.shape)
-                #     print("pred Ug_overlap_comm:", Ug_overlap_comm, Ug_overlap_comm.shape)
-
                 Ug_overlap_reprs = concat_reprs(Ug_overlap_uniq, Ug_overlap_comm, using_uniq, using_comm)
                 Uh_overlap_reprs = concat_reprs(Uh_overlap_uniq, Uh_overlap_comm, using_uniq, using_comm)
-
-                # print("Ug_overlap_uniq:", Ug_overlap_uniq)
-                # print("Ug_overlap_comm:", Ug_overlap_comm)
 
                 fed_ol_reprs = aggregate(guest_reprs=Ug_overlap_reprs,
                                          host_reprs=Uh_overlap_reprs,
                                          aggregation_mode=self.aggregation_mode)
 
-                # print("pred fed_ol_reprs:", fed_ol_reprs, fed_ol_reprs.shape)
                 pred = self.fed_lr.forward(fed_ol_reprs)
-                # print("pred logits:", pred)
                 y_prob = F.softmax(pred, dim=1)
-                # print("pred prob:", y_prob)
 
                 y_prob = y_prob.cpu().detach().numpy()
                 y_prob_list = y_prob_list + [y for y in y_prob]
@@ -598,27 +562,13 @@ class VerticalFederatedTransferLearning(object):
 
                 y_hat_1d = convert_to_1d_labels(y_prob)
                 y_hat_list = y_hat_list + [y for y in y_hat_1d]
-                # y_prob_1d = convert_to_1d_prob(y_prob)
+
                 y_prob_1d_v1 = y_prob[:, 1]
                 y_prob_1d_v0 = y_prob[:, 0]
-                # print("y_prob", y_prob)
-                # print("y_prob_1d", y_prob_1d)
+
                 y_prob_id_list_v0 = y_prob_id_list_v0 + [y for y in y_prob_1d_v0]
                 y_prob_id_list_v1 = y_prob_id_list_v1 + [y for y in y_prob_1d_v1]
 
-            # debug = True
-            # if self.debug:
-            #     print("[DEBUG] y_prob shape {0}".format(y_prob.shape))
-            #     print("[DEBUG] y_prob {0}".format(y_prob))
-            #     print("[DEBUG] y_true shape {0}:".format(y.shape))
-            #     print("[DEBUG] y_hat_list shape {0}:".format(y_hat_list.shape))
-            #     print("[DEBUG] y_true_1d shape {0}:".format(y_true_1d.shape))
-
-        # print("y_true_list:", len(y_true_list), y_true_list)
-        # print("y_prob_list:", len(y_prob_list), y_prob_list)
-        # print("y_true_1hot_list:", y_true_1hot_list)
-        # res = precision_recall_fscore_support(y_true_list, y_prob_list)
-        # fscore = f_score_v2(y_true_1d_list, y_prob_id_list)
         acc = accuracy_score(y_true_1d_list, y_hat_list)
         if self.n_class > 2:
             auc = 0.0
@@ -626,16 +576,13 @@ class VerticalFederatedTransferLearning(object):
             fscore_v1 = 0.0
             fscore_sciki = 0.0
         else:
-            # print("y_true_1hot_list:", y_true_1hot_list)
-            # print("y_prob_list:", y_prob_list)
             fscore_v0 = f_score_v2(y_true_1d_list, y_prob_id_list_v0)
             fscore_v1 = f_score_v2(y_true_1d_list, y_prob_id_list_v1)
-            print("y_true list:", y_true_1d_list)
-            print("y_hat  list:", y_hat_list)
+            # print("y_true list:", y_true_1d_list)
+            # print("y_hat  list:", y_hat_list)
             fscore_sciki = f1_score(y_true_1d_list, y_hat_list)
             auc = roc_auc_score(y_true_1hot_list, y_prob_list)
 
-        # print("[INFO] all_res:", res)
         print("[INFO] {} - fscore_v0:{}, fscore_v1:{}, fscore_sciki:{}, auc:{}, acc:{}".format(data_type,
                                                                                                fscore_v0,
                                                                                                fscore_v1,

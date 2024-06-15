@@ -9,7 +9,6 @@ def sharpen(p, temperature=0.1):
 
 def compute_queries_keys_sim(queries, keys, Wqk=None):
     if Wqk is None:
-        # print("keys[1].shape:", keys[1].shape[0])
         return torch.matmul(queries, torch.transpose(keys, 0, 1)) / torch.sqrt(torch.tensor(keys[1].shape[0]))
     else:
         trans_queries = torch.matmul(queries, Wqk)
@@ -270,22 +269,12 @@ class AttentionBasedRepresentationEstimator(object):
         sel_reprs = list()
         for repr_w_candidate_lbl in reprs_w_candidate_labels:
 
-            # reprs = repr_w_candidate_lbl[:-3 * n_class]
-            # # fetch fed labels
-            # candidate_lbl_fed = repr_w_candidate_lbl[-n_class:]
-            # # fetch guest_lr labels
-            # candidate_lbl_guest = repr_w_candidate_lbl[-2 * n_class:-n_class]
-            # # fetch host_lr labels
-            # candidate_lbl_host = repr_w_candidate_lbl[-3 * n_class:- 2 * n_class]
-
             # fetch fed labels
             candidate_lbl_fed = repr_w_candidate_lbl[-n_class:]
             # fetch guest_lr labels
             candidate_lbl_guest = repr_w_candidate_lbl[-2 * n_class:-n_class]
             # fetch host_lr labels
             candidate_lbl_host = repr_w_candidate_lbl[-3 * n_class:-2 * n_class]
-
-            # candidate_lbl_att = repr_w_candidate_lbl[-4 * n_class:- 3 * n_class]
 
             reprs = repr_w_candidate_lbl[:-3 * n_class]
 
@@ -307,14 +296,6 @@ class AttentionBasedRepresentationEstimator(object):
             prob_2 = candidate_lbl_guest[index_2]
             prob_3 = candidate_lbl_host[index_3]
 
-            # print("class index_1:", index_1, prob_1)
-            # print("class index_2:", index_2, prob_2)
-            # print("class index_3:", index_3, prob_3)
-
-            # index_4 = torch.argmax(input=candidate_lbl_att)
-            # is_same_class_3 = torch.eq(index_3, index_4)
-            # prob_4 = candidate_lbl_att[index_4]
-
             is_beyond_threshold_13 = torch.logical_and(torch.greater(prob_1, fed_label_upper_bound),
                                                        torch.greater(prob_3, host_label_upper_bound))
 
@@ -323,22 +304,12 @@ class AttentionBasedRepresentationEstimator(object):
 
             all_above_threshold = torch.logical_and(is_beyond_threshold_13, is_beyond_threshold_12)
 
-            # is_same_class_12 = torch.logical_and(is_same_class_1, is_same_class_2)
-
-            # is_same_class_23 = torch.logical_and(is_same_class_2, is_same_class_3)
-            # is_same_class = torch.logical_and(is_same_class_12, is_same_class_23)
-
             is_same_class = torch.logical_and(is_same_class_1, is_same_class_2)
 
-            # to_gather = torch.logical_and(is_beyond_threshold, is_same_class_12)
-            # to_gather = torch.logical_and(is_beyond_threshold_13, is_same_class)
-
             to_gather = torch.logical_and(all_above_threshold, is_same_class)
-            # to_gather = torch.logical_and(is_beyond_threshold_12, is_same_class)
 
             if to_gather:
                 estimated_lbl = sharpen(candidate_lbl_fed.reshape(-1, n_class), temperature=0.6).flatten()
-                # print("estimated_lbl:", estimated_lbl)
                 concate_reprs_w_lbls = torch.cat((reprs, estimated_lbl), dim=0)
                 sel_reprs.append(concate_reprs_w_lbls)
 

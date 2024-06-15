@@ -83,7 +83,6 @@ class FederatedTrainingParam(object):
         param_dict["input_dim"] = self.fed_input_dim
         param_dict["epoch"] = self.epoch
         param_dict["metric"] = self.monitor_metric
-        # param_dict["non_overlap_sample_batch_num"] = self.non_overlap_sample_batch_num
         param_dict["overlap_sample_batch_sum"] = self.overlap_sample_batch_num
         param_dict["all_sample_block_size"] = self.all_sample_block_size
         param_dict["is_hetero_repr"] = self.is_hetero_repr
