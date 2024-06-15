@@ -348,6 +348,7 @@ def batch_run_experiments(train_dataset, test_dataset, optim_args, loss_weight_a
     lambda_dist_ested_reprs_vs_true_reprs = loss_weight_args["lambda_dist_ested_reprs_vs_true_reprs"]
     lambda_host_dist_two_ested_lbls = loss_weight_args["lambda_host_dist_two_ested_lbls"]
 
+    # use only labeled aligned samples
     only_use_ll = training_args.get("only_use_ll")
 
     # =============================================================================================================

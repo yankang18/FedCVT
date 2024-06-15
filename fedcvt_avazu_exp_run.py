@@ -150,9 +150,6 @@ if __name__ == "__main__":
     ll_overlap_sample_batch_size = 512
     ul_overlap_sample_batch_size = 512
     non_overlap_sample_batch_size = 512
-    # ul_overlap_sample_batch_size = 1024
-    # ll_overlap_sample_batch_size = 1024
-    # non_overlap_sample_batch_size = 1024
     sharpen_temperature = 0.5
     is_hetero_reprs = False
 
@@ -161,16 +158,9 @@ if __name__ == "__main__":
     guest_label_prob_threshold = 0.6
     host_label_prob_threshold = 0.5
 
-    # label_prob_sharpen_temperature = 0.1
-    # fed_label_prob_threshold = 0.8
-    # guest_label_prob_threshold = 0.8
-    # host_label_prob_threshold = 0.8
-
-    # num_overlap_list = [20000]
-    num_overlap_list = [40000]
-    num_labeled_overlap_list = [200, 400, 600, 800, 1000]
-    # num_overlap_list = [600]
-    # num_overlap_list = [500]
+    num_overlap_list = [250]
+    # num_overlap_list = [250, 500, 1000, 2000, 4000]
+    num_labeled_overlap_list = num_overlap_list
     training_args = dict()
     training_args["epoch"] = epoch
     training_args["num_overlap_list"] = num_overlap_list
@@ -219,10 +209,6 @@ if __name__ == "__main__":
     loss_weight_args["lambda_host_dist_ested_lbls_vs_true_lbls"] = lambda_host_dist_ested_lbls_vs_true_lbls
     loss_weight_args["lambda_dist_ested_reprs_vs_true_reprs"] = lambda_dist_ested_reprs_vs_true_reprs
     loss_weight_args["lambda_host_dist_two_ested_lbls"] = lambda_host_dist_two_ested_lbls
-
-    # batch_run_experiments(X_guest_train, X_host_train, Y_train,
-    #                       X_guest_test, X_host_test, Y_test,
-    #                       optim_args, loss_weight_args, training_args, other_args)
 
     # device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

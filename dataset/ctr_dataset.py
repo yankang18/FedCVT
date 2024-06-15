@@ -159,7 +159,7 @@ class Criteo2party(object):
         return data, np.array(self.y[indexx])
 
 
-class Avazu2party():
+class Avazu2party(object):
 
     def __init__(self, data_dir, data_type, k, input_size, split_mode='equal'):
         self.x = []  # the datapath of 2 different png files
@@ -167,7 +167,7 @@ class Avazu2party():
         self.data_dir = data_dir
         self.k = k
         train_ratio = 0.2
-        self.data_dir = data_dir
+        # self.data_dir = data_dir
 
         # split features
         self.feature_list = []

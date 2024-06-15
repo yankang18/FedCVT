@@ -121,12 +121,9 @@ if __name__ == "__main__":
         guest_label_prob_threshold = 0.9
         host_label_prob_threshold = 0.9
 
-        # num_overlap_list = [11723]
-        # num_overlap_list = [44140]
-        # num_overlap_list = [24140]
-        num_overlap_list = [25000]
-        num_labeled_overlap_list = [1000]
-        # num_overlap_list = [500]
+        num_overlap_list = [250]
+        # num_overlap_list = [250, 500, 1000, 2000, 4000]
+        num_labeled_overlap_list = num_overlap_list
         training_args = dict()
         training_args["epoch"] = epoch
         training_args["num_overlap_list"] = num_overlap_list

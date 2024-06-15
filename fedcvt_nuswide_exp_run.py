@@ -82,7 +82,6 @@ def get_valid_sample_indices(data):
     for idx, data in enumerate(data):
         if np.all(data == 0):
             idx_invalid_sample_list.append(idx)
-            # print("X_text_all_i", idx, np.sum(X_text_all_i), len(X_text_all_i))
         else:
             idx_valid_sample_list.append(idx)
 
@@ -123,9 +122,6 @@ if __name__ == "__main__":
     ll_overlap_sample_batch_size = 256
     ul_overlap_sample_batch_size = 512
     non_overlap_sample_batch_size = 512
-    # ll_overlap_sample_batch_size = 512
-    # ul_overlap_sample_batch_size = 1024
-    # non_overlap_sample_batch_size = 1024
 
     sharpen_temperature = 0.7
     is_hetero_reprs = False
@@ -140,16 +136,8 @@ if __name__ == "__main__":
     guest_label_prob_threshold = 0.7
     host_label_prob_threshold = 0.7
 
-    # label_prob_sharpen_temperature = 0.1
-    # fed_label_prob_threshold = 0.8
-    # guest_label_prob_threshold = 0.7
-    # host_label_prob_threshold = 0.7
-
-    # num_overlap_list = [11723]
-    # num_overlap_list = [23447]
-    # num_labeled_overlap_list = [200, 400, 600, 800, 1000]
-
     num_overlap_list = [250]
+    # num_overlap_list = [250, 500, 1000, 2000, 4000]
     num_labeled_overlap_list = num_overlap_list
     training_args = dict()
     training_args["epoch"] = epoch
@@ -180,13 +168,6 @@ if __name__ == "__main__":
     # Prepare loss hyper-parameters
     # =====================================
 
-    # num_overlap = 500
-    # lambda_dis_shared_reprs = [0.1]
-    # lambda_sim_shared_reprs_vs_uniq_reprs = [0.1]
-    # lambda_host_dis_ested_lbls_vs_true_lbls = [100]
-    # lambda_dis_ested_reprs_vs_true_reprs = [0.1]
-    # lambda_host_dist_two_ested_lbls = [0.01]
-    # learning_rate = [0.01]
     lambda_dis_shared_reprs = [0.1]
     lambda_sim_shared_reprs_vs_uniq_reprs = [0.01]
     lambda_host_dist_ested_lbls_vs_true_lbls = [100]
@@ -210,8 +191,7 @@ if __name__ == "__main__":
         torch.cuda.set_device(gpu_device_id)
         print('gpu device = %d' % gpu_device_id)
 
-    # seed_list = [0, 1, 2, 3, 4]
-    seed_list = [0]
+    seed_list = [0, 1, 2, 3, 4]
     for seed in seed_list:
         set_seed(seed)
         training_args["seed"] = seed
