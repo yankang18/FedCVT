@@ -21,7 +21,7 @@ You can change the hyperparameters in these python files.
 
 If you think our work is helpful and used our code in your work, please cite our paper:
 ```
-@article{10.1145/3510031,
+@article{kang2022fedcvt,
 author = {Kang, Yan and Liu, Yang and Liang, Xinle},
 title = {FedCVT: Semi-supervised Vertical Federated Learning with Cross-view Training},
 year = {2022},
