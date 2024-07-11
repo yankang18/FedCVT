@@ -7,7 +7,7 @@ __pycache__/
 *.pyc
 *.json
 *.zip
-data/
+
 credit_g/
 experimental_results/
 spambase/
