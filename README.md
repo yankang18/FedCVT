@@ -8,7 +8,16 @@ Note that this codebase is the Pytorch implementation of FedCVT. The original im
 The workflow of FedCVT is described as follows and illustrated in the following figure.
 ![FedCVT_method](./figs/overview.png)
 
-## 2. Run the code
+## 2. Dataset
+
+We use three datasets for experiments. 
+
+- `NUSWIDE` can be downloaded at [here](https://lms.comp.nus.edu.sg/wp-content/uploads/2019/research/nuswide/NUS-WIDE.html)
+- `Avazu` is located in the data directory.
+
+You can adopt any dataset to run the code. 
+
+## 3. Run the code
 
 The entry points for running the experiments on Avazu, BHI and NUSWIDE are 
 - fedcvt_avazu_exp_run.py, 
@@ -17,7 +26,7 @@ The entry points for running the experiments on Avazu, BHI and NUSWIDE are
   
 You can change the hyperparameters in these python files.
 
-## 3. Citation
+## 4. Citation
 
 If you think our work is helpful and used our code in your work, please cite our paper:
 ```
