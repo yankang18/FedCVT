@@ -12,7 +12,7 @@ The workflow of FedCVT is described as follows and illustrated in the following 
 
 We use the following datasets for experiments. 
 
-- `NUSWIDE` can be downloaded at [here](https://lms.comp.nus.edu.sg/wp-content/uploads/2019/research/nuswide/NUS-WIDE.html)
+- `NUSWIDE` can be downloaded at [here](https://lms.comp.nus.edu.sg/wp-content/uploads/2019/research/nuswide/NUS-WIDE.html) or [here](https://opendatalab.com/OpenDataLab/NUS-WIDE)
 - `Avazu` is located in the [data](https://github.com/yankang18/FedCVT/tree/main/data) directory.
 - `CIFAR10` can be downloaded using Pytorch.
 - `Vehicle` can be downloaded at [here](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass.html) with the name of "SensIT Vehicle (combined)"
