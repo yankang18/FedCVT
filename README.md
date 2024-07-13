@@ -13,7 +13,7 @@ The workflow of FedCVT is described as follows and illustrated in the following 
 We use three datasets for experiments. 
 
 - `NUSWIDE` can be downloaded at [here](https://lms.comp.nus.edu.sg/wp-content/uploads/2019/research/nuswide/NUS-WIDE.html)
-- `Avazu` is located in the data directory.
+- `Avazu` is located in the [data](https://github.com/yankang18/FedCVT/tree/main/data) directory.
 
 You can adopt any dataset to run the code. 
 
